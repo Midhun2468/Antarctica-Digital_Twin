@@ -276,11 +276,12 @@
 
                 <div class="section-heading">
                     <h3>Weather Timeline</h3>
-                    <span>LIVE</span>
+                    <span id="weatherTimelineStatus">OBSERVATION</span>
                 </div>
 
                 <div class="chart-box">
                     <canvas id="weatherChart"></canvas>
+                    <p id="weatherChartEmpty" class="chart-empty hidden">No hourly observations available</p>
                 </div>
 
             </div>
@@ -372,36 +373,135 @@
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3 id="simulationInputTitle">Station Conditions</h3>
+                    <h3 id="simulationInputTitle">Emergency Response Inputs</h3>
                 </div>
 
                 <p id="simulationInputDescription">
-                    Simulate how the station responds to changing environmental conditions during the selected period.
+                    Assess station response to weather and emergency conditions.
                 </p>
 
                 <div class="simulation-input-grid">
 
-                    <div>
+                    <div class="scenario-field emergency-field climate-field">
                         <label for="personnel">Personnel</label>
                         <input type="number" id="personnel" value="45" min="1" max="200">
                     </div>
 
-                    <div>
+                    <div class="scenario-field emergency-field">
                         <label for="dailyEnergy">Daily Energy</label>
                         <input type="number" id="dailyEnergy" value="1200" min="100">
                         <small>kWh/day</small>
                     </div>
 
-                    <div>
+                    <div class="scenario-field emergency-field">
                         <label for="fuelStock">Fuel Stock</label>
                         <input type="number" id="fuelStock" value="10000" min="0">
                         <small>L</small>
                     </div>
 
-                    <div>
+                    <div class="scenario-field emergency-field">
                         <label for="waterStock">Water Stock</label>
                         <input type="number" id="waterStock" value="6000" min="0">
                         <small>L</small>
+                    </div>
+
+                    <div class="scenario-field emergency-field">
+                        <label for="foodStock">Food Stock</label>
+                        <input type="number" id="foodStock" value="3000" min="0">
+                        <small>kg</small>
+                    </div>
+
+                    <div class="scenario-field emergency-field">
+                        <label for="medicalStock">Medical Supplies</label>
+                        <input type="number" id="medicalStock" value="500" min="0">
+                        <small>units</small>
+                    </div>
+
+                    <div class="scenario-field emergency-field">
+                        <label for="emergencySeverity">Emergency Severity</label>
+                        <select id="emergencySeverity">
+                            <option value="normal">Normal</option>
+                            <option value="severe">Severe</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+
+                    <div class="scenario-field emergency-field">
+                        <label for="transportAvailability">Transport Availability</label>
+                        <input type="number" id="transportAvailability" value="85" min="0" max="100">
+                        <small>% available</small>
+                    </div>
+
+                    <div class="scenario-field climate-field hidden">
+                        <label for="temperatureSensitivity">Temperature Sensitivity</label>
+                        <input type="number" id="temperatureSensitivity" value="1" min="0" max="3" step="0.1">
+                        <small>risk multiplier</small>
+                    </div>
+
+                    <div class="scenario-field climate-field hidden">
+                        <label for="windSensitivity">Wind Sensitivity</label>
+                        <input type="number" id="windSensitivity" value="1" min="0" max="3" step="0.1">
+                        <small>risk multiplier</small>
+                    </div>
+
+                    <div class="scenario-field climate-field hidden">
+                        <label for="snowfallSensitivity">Snowfall Sensitivity</label>
+                        <input type="number" id="snowfallSensitivity" value="1" min="0" max="3" step="0.1">
+                        <small>risk multiplier</small>
+                    </div>
+
+                    <div class="scenario-field climate-field hidden">
+                        <label for="stormSensitivity">Storm Sensitivity</label>
+                        <input type="number" id="stormSensitivity" value="1" min="0" max="3" step="0.1">
+                        <small>risk multiplier</small>
+                    </div>
+
+                    <div class="scenario-field climate-field hidden">
+                        <label for="baselineRisk">Baseline Risk</label>
+                        <input type="number" id="baselineRisk" value="10" min="0" max="100">
+                        <small>risk points</small>
+                    </div>
+
+                    <div class="scenario-field infrastructure-field hidden">
+                        <label for="planningInfrastructureType">Infrastructure Type</label>
+                        <select id="planningInfrastructureType">
+                            <option value="solar">Solar Power System</option>
+                            <option value="wind">Wind Turbine</option>
+                            <option value="battery">Battery Storage</option>
+                            <option value="diesel">Diesel Generator</option>
+                            <option value="fuel">Fuel Storage</option>
+                            <option value="water">Water Treatment System</option>
+                        </select>
+                    </div>
+
+                    <div class="scenario-field infrastructure-field hidden">
+                        <label for="planningCapacity">Planned Capacity</label>
+                        <input type="number" id="planningCapacity" value="100" min="1">
+                        <small>kW / kWh / L</small>
+                    </div>
+
+                    <div class="scenario-field infrastructure-field hidden">
+                        <label for="projectLifetime">Project Lifetime</label>
+                        <input type="number" id="projectLifetime" value="20" min="1" max="50">
+                        <small>years</small>
+                    </div>
+
+                    <div class="scenario-field infrastructure-field hidden">
+                        <label for="expectedUtilization">Expected Utilization</label>
+                        <input type="number" id="expectedUtilization" value="80" min="0" max="100">
+                        <small>% of capacity</small>
+                    </div>
+
+                    <div class="scenario-field infrastructure-field hidden">
+                        <label for="installationCost">Installation Cost</label>
+                        <input type="number" id="installationCost" value="0" min="0">
+                        <small>₹ optional override</small>
+                    </div>
+
+                    <div class="scenario-field infrastructure-field hidden">
+                        <label for="infrastructureEnergyRequirement">Energy Requirement</label>
+                        <input type="number" id="infrastructureEnergyRequirement" value="1200" min="100">
+                        <small>kWh/day</small>
                     </div>
 
                 </div>
@@ -412,6 +512,25 @@
 
                 <div class="section-heading">
                     <h3>Simulation Basis</h3>
+                </div>
+
+                <div class="simulation-baseline">
+                    <div>
+                        <span>Station baseline</span>
+                        <strong id="simulationBaselineStation">Maitri Research Station</strong>
+                    </div>
+                    <div>
+                        <span>Observed temperature</span>
+                        <strong id="simulationBaselineTemperature">-- °C</strong>
+                    </div>
+                    <div>
+                        <span>Observed wind</span>
+                        <strong id="simulationBaselineWind">-- m/s</strong>
+                    </div>
+                    <div>
+                        <span>Forecast basis</span>
+                        <strong id="simulationBaselineSource">Waiting for weather</strong>
+                    </div>
                 </div>
 
                 <div class="simulation-basis">
@@ -462,6 +581,26 @@
                     <div class="impact-card">
                         <span>Resupply</span>
                         <strong id="simulationResupply">--</strong>
+                    </div>
+
+                    <div class="impact-card">
+                        <span>Average Risk</span>
+                        <strong id="simulationAverageRisk">--</strong>
+                    </div>
+
+                    <div class="impact-card">
+                        <span>Extreme Weather Days</span>
+                        <strong id="simulationExtremeDays">--</strong>
+                    </div>
+
+                    <div class="impact-card">
+                        <span>Resource Risk</span>
+                        <strong id="simulationResourceRisk">--</strong>
+                    </div>
+
+                    <div class="impact-card">
+                        <span>Resource Alert</span>
+                        <strong id="simulationResourceAlert">--</strong>
                     </div>
 
                 </div>
@@ -819,8 +958,8 @@
 
     <section class="map-area">
 
+        <div id="windy"></div>
         <div id="map"></div>
-
         <div class="map-overlay top-left">
 
             <div class="map-title">
@@ -828,6 +967,12 @@
                 <span>Antarctica</span>
             </div>
 
+        </div>
+
+        <div class="map-overlay simulation-map-card hidden" id="simulationMapCard">
+            <span>Simulation Projection</span>
+            <strong id="mapSimulationRisk">No simulation run</strong>
+            <small id="mapSimulationDetails">Run a simulation to project station operations on the map.</small>
         </div>
 
         <div class="map-overlay top-right">
@@ -875,6 +1020,196 @@
             </div>
 
         </div>
+
+        <aside class="visualization-panel">
+
+            <div id="weatherVisualization" class="visualization-content">
+                <div class="visualization-header">
+                    <strong>Weather Analysis</strong>
+                    <span id="visualWeatherStation">Maitri Research Station</span>
+                </div>
+
+                <div class="visualization-card weather-analysis-status">
+                    <span>Observation Status</span>
+                    <strong id="visualWeatherStatus">Loading weather...</strong>
+                    <p id="visualWeatherTimestamp">Waiting for the latest station observation.</p>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Current Conditions</span>
+                    <div class="weather-analysis-grid">
+                        <div>
+                            <small>Temperature</small>
+                            <strong id="visualWeatherTemperature">-- °C</strong>
+                        </div>
+                        <div>
+                            <small>Wind</small>
+                            <strong id="visualWeatherWind">-- m/s</strong>
+                        </div>
+                        <div>
+                            <small>Pressure</small>
+                            <strong id="visualWeatherPressure">-- hPa</strong>
+                        </div>
+                        <div>
+                            <small>Humidity</small>
+                            <strong id="visualWeatherHumidity">-- %</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Operational Reading</span>
+                    <strong id="visualWeatherOperational">Awaiting weather data</strong>
+                    <p id="visualWeatherOperationalDetail">Weather conditions will be summarized here for station operations.</p>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Data Sources</span>
+                    <p>NCPOR supplies station observations. Open-Meteo supplies the hourly forecast timeline. Windy.com is reserved for spatial forecast visualization in Environment.</p>
+                </div>
+            </div>
+
+            <div id="simulationVisualization" class="visualization-content hidden">
+                <div class="visualization-header">
+                    <strong>Simulation Analysis</strong>
+                    <span id="visualizationPeriod">No simulation run</span>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Operational Risk</span>
+                    <strong id="visualRisk">--</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Energy Demand</span>
+                    <canvas id="simulationEnergyChart"></canvas>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Fuel Consumption</span>
+                    <canvas id="simulationFuelChart"></canvas>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Daily Risk</span>
+                    <canvas id="simulationRiskChart"></canvas>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Simulation Summary</span>
+                    <p id="visualSimulationSummary">
+                        Run a simulation to view the projected station conditions.
+                    </p>
+                </div>
+            </div>
+
+            <div id="logisticsVisualization" class="visualization-content hidden">
+                <div class="visualization-header">
+                    <strong>Logistics Operations</strong>
+                    <span>Station mobility</span>
+                </div>
+
+                <div class="visualization-card">
+                    <strong>Vehicle Operations</strong>
+                    <p>Snowcat movement and supply routes around the station.</p>
+                </div>
+
+                <div class="visualization-card">
+                    <strong>Route Planning</strong>
+                    <p>Select two points on the map to calculate a safer traversal route.</p>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Route Risk</span>
+                    <strong id="routeRisk">--</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Route Distance</span>
+                    <strong id="routeDistance">--</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Resupply Status</span>
+                    <strong id="visualLogisticsStatus">--</strong>
+                    <p id="visualLogisticsSummary">Select a resource to view its projected sustainability.</p>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Projected Depletion</span>
+                    <strong id="visualLogisticsDepletion">--</strong>
+                </div>
+            </div>
+
+            <div id="infrastructureVisualization" class="visualization-content hidden">
+                <div class="visualization-header">
+                    <strong>Infrastructure Planning</strong>
+                    <span>What-if analysis</span>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Capital Cost</span>
+                    <strong id="visualInfraCost">₹0</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Energy Generated</span>
+                    <strong id="visualInfraEnergy">0 kWh/day</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Fuel Saved</span>
+                    <strong id="visualInfraFuel">0 L/day</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <span>CO₂ Reduction</span>
+                    <strong id="visualInfraCO2">0 kg/day</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <strong>Infrastructure Scenario</strong>
+                    <p id="visualInfraSummary">
+                        Add infrastructure from the planning panel to evaluate its effect.
+                    </p>
+                </div>
+            </div>
+
+            <div id="environmentVisualization" class="visualization-content hidden">
+                <div class="visualization-header">
+                    <strong>Environmental Conditions</strong>
+                    <span>Localized station view</span>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Selected Layer</span>
+                    <strong id="visualEnvironmentLayer">Temperature</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Current Condition</span>
+                    <strong id="visualEnvironmentValue">--</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Data Source</span>
+                    <strong id="visualEnvironmentSource">--</strong>
+                    <p id="visualEnvironmentStatus">Observation status unavailable.</p>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Station</span>
+                    <strong id="visualEnvironmentStation">Maitri</strong>
+                </div>
+
+                <div class="visualization-card">
+                    <p>
+                        Windy.com provides the interactive spatial forecast. NCPOR remains the source for station observations.
+                    </p>
+                </div>
+            </div>
+
+        </aside>
 
     </section>
 

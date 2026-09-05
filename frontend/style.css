@@ -317,6 +317,25 @@ input[type="number"]:focus {
     position: relative;
 }
 
+.chart-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 10px;
+    text-align: center;
+}
+
+.chart-empty.hidden {
+    display: none;
+}
+
+.chart-box canvas.hidden {
+    display: none;
+}
+
 .location-info {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -601,6 +620,35 @@ input[type="range"]::-moz-range-thumb {
 .top-right {
     top: 16px;
     right: 16px;
+}
+
+.simulation-map-card {
+    top: 82px;
+    left: 16px;
+    max-width: 220px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #d6dfe4;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(20, 40, 50, 0.12);
+}
+
+.simulation-map-card.hidden {
+    display: none;
+}
+
+.simulation-map-card span,
+.simulation-map-card small {
+    display: block;
+    color: #71808c;
+    font-size: 9px;
+}
+
+.simulation-map-card strong {
+    display: block;
+    margin: 4px 0;
+    color: #2c4351;
+    font-size: 13px;
 }
 
 .bottom-left {
@@ -1093,6 +1141,13 @@ input[type="range"]::-moz-range-thumb {
     gap: 10px;
 }
 
+#simulationInputDescription {
+    margin: 0 0 12px;
+    color: #637381;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
 .simulation-input-grid > div {
     padding: 10px;
     border: 1px solid #dce4e9;
@@ -1119,6 +1174,10 @@ input[type="range"]::-moz-range-thumb {
     color: #89969e;
 }
 
+.scenario-field.hidden {
+    display: none;
+}
+
 .simulation-basis {
     padding: 11px;
     border: 1px solid #dce6eb;
@@ -1127,4 +1186,190 @@ input[type="range"]::-moz-range-thumb {
     font-size: 10px;
     line-height: 1.5;
     color: #657681;
+}
+
+.simulation-baseline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin-bottom: 10px;
+}
+
+.simulation-baseline div {
+    padding: 9px 10px;
+    border: 1px solid #dce4e9;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+.simulation-baseline span {
+    display: block;
+    color: #718391;
+    font-size: 9px;
+}
+
+.simulation-baseline strong {
+    display: block;
+    margin-top: 4px;
+    color: #294555;
+    font-size: 11px;
+}
+
+.map-area {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #dce4e8;
+}
+
+#map {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.visualization-panel {
+    display: block !important;
+    width: 360px;
+    min-width: 360px;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #ffffff;
+    border-left: 1px solid #dfe5ea;
+    z-index: 1000;
+}
+
+.visualization-content {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 16px;
+}
+
+.visualization-content.hidden {
+    display: none !important;
+}
+
+.visualization-header {
+    padding-bottom: 14px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e2e8ed;
+}
+
+.visualization-header strong {
+    display: block;
+    font-size: 14px;
+    color: #263238;
+}
+
+.visualization-header span {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #7a8792;
+}
+
+.visualization-card {
+    padding: 13px;
+    margin-bottom: 10px;
+    border: 1px solid #dce4e9;
+    border-radius: 8px;
+    background: #f9fbfc;
+}
+
+.visualization-card > span {
+    display: block;
+    font-size: 11px;
+    color: #6d7a85;
+    margin-bottom: 6px;
+}
+
+.visualization-card > strong {
+    display: block;
+    font-size: 17px;
+    color: #263238;
+}
+
+.visualization-card p {
+    margin: 6px 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #65737e;
+}
+
+.visualization-card canvas {
+    width: 100% !important;
+    height: 160px !important;
+    margin-top: 8px;
+}
+
+.weather-analysis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.weather-analysis-grid div {
+    padding: 9px;
+    border: 1px solid #dce4e9;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+.weather-analysis-grid small {
+    display: block;
+    color: #718391;
+    font-size: 10px;
+}
+
+.weather-analysis-grid strong {
+    display: block;
+    margin-top: 5px;
+    color: #243b4a;
+    font-size: 14px;
+}
+
+.weather-analysis-status strong {
+    color: #3b8a68;
+}
+
+@media (max-width: 1000px) {
+    .map-area {
+        grid-template-columns: minmax(0, 1fr) 300px;
+    }
+}
+#windy {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: none;
+    background: #dce4e8;
+}
+
+#windy iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+}
+
+#windy .leaflet-container {
+    width: 100%;
+    height: 100%;
+}
+
+.map-area.windy-active #map {
+    visibility: hidden;
+}
+
+.map-area.windy-active #windy {
+    display: block;
 }
