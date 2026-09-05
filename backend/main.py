@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import os
+from datetime import datetime, timezone
 
 app = FastAPI()
 
@@ -49,6 +50,28 @@ def extract_value(text, pattern):
     if match:
         return float(match.group(1))
     return None
+
+
+def get_open_meteo_hourly(station):
+    data = STATIONS[station]
+    url = (
+        "https://api.open-meteo.com/v1/forecast?"
+        f"latitude={data['lat']}&longitude={data['lon']}&"
+        "hourly=temperature_2m,wind_speed_10m&forecast_days=2&timezone=UTC"
+    )
+
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    payload = response.json()
+    hourly = payload.get("hourly", {})
+    wind_values = hourly.get("wind_speed_10m", [])
+
+    return {
+        "time": hourly.get("time", [])[:24],
+        "temperature": hourly.get("temperature_2m", [])[:24],
+        "wind_speed": [round(value / 3.6, 2) for value in wind_values[:24]
+                       if value is not None]
+    }
 
 
 def get_ncpor_weather(station):
@@ -105,6 +128,19 @@ def get_ncpor_weather(station):
     if wind_knots is not None:
         wind_ms = round(wind_knots * 0.514444, 2)
 
+    hourly = {
+        "time": [],
+        "temperature": [],
+        "wind_speed": []
+    }
+    hourly_source = None
+
+    try:
+        hourly = get_open_meteo_hourly(station)
+        hourly_source = "Open-Meteo forecast"
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        pass
+
     return {
         "station": station,
         "station_name": data["name"],
@@ -119,10 +155,44 @@ def get_ncpor_weather(station):
         "timestamp": timestamp,
         "source": "NCPOR",
         "source_url": data["url"],
+        "hourly": hourly,
+        "hourly_source": hourly_source,
+        "hourly_status": "Forecast/model data" if hourly_source else "Unavailable"
+    }
+
+
+def get_fallback_weather(station):
+    data = STATIONS[station]
+    defaults = {
+        "maitri": {"temperature": -18.0, "humidity": 61.0, "pressure": 987.0, "wind_speed": 8.0},
+        "bharati": {"temperature": -22.0, "humidity": 64.0, "pressure": 982.0, "wind_speed": 10.0}
+    }
+    current = defaults[station]
+    now = datetime.now(timezone.utc)
+    hourly = []
+
+    for hour in range(24):
+        timestamp = now.replace(minute=0, second=0, microsecond=0)
+        timestamp = timestamp.replace(hour=(timestamp.hour + hour) % 24)
+        hourly.append({
+            "time": timestamp.isoformat(),
+            "temperature": round(current["temperature"] + ((hour % 6) - 2.5) * 0.4, 1),
+            "wind_speed": round(max(0, current["wind_speed"] + ((hour % 5) - 2) * 0.5), 1)
+        })
+
+    return {
+        "station": station,
+        "station_name": data["name"],
+        "latitude": data["lat"],
+        "longitude": data["lon"],
+        **current,
+        "timestamp": now.isoformat(),
+        "source": "Fallback/model data",
+        "source_url": data["url"],
         "hourly": {
-            "time": [],
-            "temperature": [],
-            "wind_speed": []
+            "time": [item["time"] for item in hourly],
+            "temperature": [item["temperature"] for item in hourly],
+            "wind_speed": [item["wind_speed"] for item in hourly]
         }
     }
 
@@ -131,6 +201,13 @@ def get_ncpor_weather(station):
 def status():
     return {
         "status": "Antarctic Digital Twin API running"
+    }
+
+
+@app.get("/api/config")
+def config():
+    return {
+        "windy_api_key": os.getenv("WINDY_API_KEY", "")
     }
 
 
@@ -147,16 +224,14 @@ def get_weather(station: str):
         return get_ncpor_weather(station)
 
     except requests.RequestException as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"NCPOR request failed: {str(e)}"
-        )
+        fallback = get_fallback_weather(station)
+        fallback["error"] = f"NCPOR request failed: {str(e)}"
+        return fallback
 
     except Exception as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Weather processing failed: {str(e)}"
-        )
+        fallback = get_fallback_weather(station)
+        fallback["error"] = f"NCPOR response could not be parsed: {str(e)}"
+        return fallback
 
 
 @app.post("/api/simulation")
