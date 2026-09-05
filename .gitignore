@@ -1,2 +1,14 @@
-**/__pycache__/
+# Python cache and local environments
+__pycache__/
+*.py[cod]
+.venv/
 venv/
+
+# Local environment files
+.env
+.env.*
+
+# Editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db
