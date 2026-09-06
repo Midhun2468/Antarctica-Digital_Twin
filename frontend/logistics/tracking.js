@@ -1,6 +1,6 @@
 // ============================================================
 // LOGISTICS TRACKING MODULE
-// Phase 2 - Cargo Tracking Foundation
+// Phase 2 - Multimodal Cargo Tracking
 // ============================================================
 
 window.LogisticsTracking = {
@@ -11,6 +11,7 @@ window.LogisticsTracking = {
 
     simulationTimer: null,
 
+
     // --------------------------------------------------------
     // SIMULATED RESUPPLY MISSIONS
     // --------------------------------------------------------
@@ -19,53 +20,36 @@ window.LogisticsTracking = {
 
         {
             id: "SUP-001",
-
             cargo: "Fuel + Generator Spares",
-
             quantity: "8,000 L fuel",
-
             origin: "Goa, India",
-
             destination: "Maitri Station",
-
             mode: "Supply Vessel",
-
             status: "IN TRANSIT",
-
             progress: 68,
-
             etaDays: 12,
-
             plannedEtaDays: 14,
-
-            risk: "LOW"
+            risk: "LOW",
+            condition: "NORMAL"
         },
 
         {
             id: "SUP-002",
-
             cargo: "Food & Medical Supplies",
-
             quantity: "4.2 tonnes",
-
             origin: "Cape Town, South Africa",
-
             destination: "Bharati Station",
-
             mode: "Aircraft",
-
-            status: "SCHEDULED",
-
-            progress: 0,
-
+            status: "IN TRANSIT",
+            progress: 35,
             etaDays: 21,
-
             plannedEtaDays: 21,
-
-            risk: "LOW"
+            risk: "LOW",
+            condition: "NORMAL"
         }
 
     ],
+
 
     // --------------------------------------------------------
     // INITIALIZE
@@ -73,18 +57,39 @@ window.LogisticsTracking = {
 
     init() {
 
-    console.log(
-        "Logistics tracking module initialized."
-    );
+        console.log(
+            "Logistics tracking module initialized."
+        );
 
-    this.render();
+        this.render();
 
-    this.startSimulation();
+        this.startSimulation();
 
-},
+    },
+
 
     // --------------------------------------------------------
-    // GET ACTIVE SHIPMENT
+    // GET ALL ACTIVE SHIPMENTS
+    // --------------------------------------------------------
+
+    getActiveShipments() {
+
+        return this.shipments.filter(
+            shipment =>
+                shipment.status === "IN TRANSIT"
+        );
+
+    },
+
+
+    // --------------------------------------------------------
+    // GET PRIMARY ACTIVE SHIPMENT
+    // --------------------------------------------------------
+    //
+    // Kept for compatibility with the existing
+    // Prediction / Recommendation / Command modules.
+    //
+    // SUP-001 remains the primary shipment.
     // --------------------------------------------------------
 
     getActiveShipment() {
@@ -96,8 +101,9 @@ window.LogisticsTracking = {
 
     },
 
+
     // --------------------------------------------------------
-    // GET STATUS LABEL
+    // STATUS LABEL
     // --------------------------------------------------------
 
     getStatusLabel(shipment) {
@@ -112,8 +118,9 @@ window.LogisticsTracking = {
 
     },
 
+
     // --------------------------------------------------------
-    // CALCULATE SCHEDULE CONDITION
+    // SCHEDULE CONDITION
     // --------------------------------------------------------
 
     getScheduleCondition(shipment) {
@@ -136,224 +143,286 @@ window.LogisticsTracking = {
         return "DELAYED";
 
     },
+
+
     // --------------------------------------------------------
-// CALCULATE WEATHER IMPACT
-// --------------------------------------------------------
+    // WEATHER IMPACT
+    // --------------------------------------------------------
 
-calculateWeatherImpact() {
+    calculateWeatherImpact(shipment = null) {
 
-    const temperature =
-        Number(
-            document.getElementById(
-                "liveTemperature"
-            )?.textContent
+        const temperature =
+            Number(
+                document.getElementById(
+                    "liveTemperature"
+                )?.textContent
+            );
+
+        const wind =
+            Number(
+                document.getElementById(
+                    "liveWind"
+                )?.textContent
+            );
+
+        const currentTemperature =
+            Number.isFinite(temperature)
+                ? temperature
+                : -18;
+
+        const currentWind =
+            Number.isFinite(wind)
+                ? wind
+                : 8;
+
+        let factor = 1;
+
+
+        // Strong winds
+
+        if (currentWind >= 25) {
+
+            factor *= 0.55;
+
+        }
+        else if (currentWind >= 18) {
+
+            factor *= 0.75;
+
+        }
+
+
+        // Extreme cold
+
+        if (currentTemperature <= -35) {
+
+            factor *= 0.65;
+
+        }
+        else if (currentTemperature <= -25) {
+
+            factor *= 0.85;
+
+        }
+
+
+        // Aircraft-specific sensitivity
+
+        if (
+            shipment &&
+            shipment.mode === "Aircraft"
+        ) {
+
+            if (currentWind >= 25) {
+
+                factor *= 0.90;
+
+            }
+            else if (currentWind >= 18) {
+
+                factor *= 0.95;
+
+            }
+
+        }
+
+
+        return Math.max(
+            0.35,
+            Math.min(
+                1,
+                factor
+            )
         );
 
-    const wind =
-        Number(
-            document.getElementById(
-                "liveWind"
-            )?.textContent
+    },
+
+
+    // --------------------------------------------------------
+    // UPDATE ALL ACTIVE JOURNEYS
+    // --------------------------------------------------------
+
+    updateJourney() {
+
+        const activeShipments =
+            this.getActiveShipments();
+
+
+        if (!activeShipments.length) {
+
+            this.update();
+
+            return;
+
+        }
+
+
+        activeShipments.forEach(
+            shipment => {
+
+                const weatherFactor =
+                    this.calculateWeatherImpact(
+                        shipment
+                    );
+
+
+                // Progress
+
+                const baseProgressStep = 1;
+
+                const progressStep =
+                    baseProgressStep *
+                    weatherFactor;
+
+                shipment.progress =
+                    Math.min(
+                        100,
+                        shipment.progress +
+                        progressStep
+                    );
+
+
+                // ETA
+
+                const etaReduction =
+                    0.05 *
+                    weatherFactor;
+
+                shipment.etaDays =
+                    Math.max(
+                        0,
+                        shipment.etaDays -
+                        etaReduction
+                    );
+
+
+                // Status
+
+                if (
+                    shipment.progress >= 100 ||
+                    shipment.etaDays <= 0
+                ) {
+
+                    shipment.progress = 100;
+
+                    shipment.etaDays = 0;
+
+                    shipment.status = "ARRIVED";
+
+                    shipment.risk = "LOW";
+
+                    shipment.condition = "NORMAL";
+
+                }
+                else {
+
+                    shipment.status =
+                        "IN TRANSIT";
+
+
+                    if (weatherFactor < 0.6) {
+
+                        shipment.risk = "HIGH";
+
+                        shipment.condition =
+                            "SEVERE";
+
+                    }
+                    else if (weatherFactor < 0.85) {
+
+                        shipment.risk = "MEDIUM";
+
+                        shipment.condition =
+                            "DEGRADED";
+
+                    }
+                    else {
+
+                        shipment.risk = "LOW";
+
+                        shipment.condition =
+                            "NORMAL";
+
+                    }
+
+                }
+
+            }
         );
 
-    const currentTemperature =
-        Number.isFinite(temperature)
-            ? temperature
-            : -18;
 
-    const currentWind =
-        Number.isFinite(wind)
-            ? wind
-            : 8;
+        // Refresh Tracking UI
 
-    let factor = 1;
+        this.update();
 
-    // Strong winds slow transport.
 
-    if (currentWind >= 25) {
+        // Refresh Route
 
-        factor *= 0.55;
+        if (
+            window.LogisticsRoute &&
+            typeof LogisticsRoute.update ===
+                "function"
+        ) {
 
-    }
-    else if (currentWind >= 18) {
+            LogisticsRoute.update();
 
-        factor *= 0.75;
+        }
 
-    }
 
-    // Extreme cold slows transport.
+        // Refresh Prediction
 
-    if (currentTemperature <= -35) {
+        if (
+            window.LogisticsPrediction &&
+            typeof window.LogisticsPrediction.update ===
+                "function"
+        ) {
 
-        factor *= 0.65;
+            window.LogisticsPrediction.update();
 
-    }
-    else if (currentTemperature <= -25) {
+        }
 
-        factor *= 0.85;
 
-    }
+        // Refresh Recommendation
 
-    return Math.max(
-        0.35,
-        Math.min(1, factor)
-    );
+        if (
+            window.LogisticsRecommendation &&
+            typeof window.LogisticsRecommendation.update ===
+                "function"
+        ) {
 
-},
-// --------------------------------------------------------
-// UPDATE JOURNEY
-// --------------------------------------------------------
+            window.LogisticsRecommendation.update();
 
-updateJourney() {
+        }
 
-    const shipment =
-        this.getActiveShipment();
+    },
 
-    if (!shipment) {
 
-        return;
+    // --------------------------------------------------------
+    // START SIMULATION
+    // --------------------------------------------------------
 
-    }
+    startSimulation() {
 
-    const weatherFactor =
-        this.calculateWeatherImpact();
+        if (this.simulationTimer) {
 
-    // --------------------------------------------
-    // PROGRESS
-    // --------------------------------------------
+            clearInterval(
+                this.simulationTimer
+            );
 
-    const baseProgressStep = 1;
+        }
 
-    const progressStep =
-        baseProgressStep *
-        weatherFactor;
+        this.simulationTimer =
+            setInterval(
+                () => {
 
-    shipment.progress =
-        Math.min(
-            100,
-            shipment.progress +
-            progressStep
-        );
+                    this.updateJourney();
 
-    // --------------------------------------------
-    // ETA
-    // --------------------------------------------
+                },
+                3000
+            );
 
-    const etaReduction =
-        0.05 *
-        weatherFactor;
+    },
 
-    
-    shipment.etaDays =
-        Math.max(
-            0,
-            shipment.etaDays -
-            etaReduction
-        );
-
-    // --------------------------------------------
-    // UPDATE STATUS
-    // --------------------------------------------
-
-    if (
-        shipment.progress >= 100 ||
-        shipment.etaDays <= 0
-    ) {
-
-        shipment.progress = 100;
-
-        shipment.etaDays = 0;
-
-        shipment.status = "ARRIVED";
-
-    }
-    else {
-
-        shipment.status = "IN TRANSIT";
-
-    }
-
-    // --------------------------------------------
-    // DETERMINE DELAY RISK
-    // --------------------------------------------
-
-   if (weatherFactor < 0.6) {
-
-    shipment.risk = "HIGH";
-    shipment.condition = "SEVERE";
-
-}
-else if (weatherFactor < 0.85) {
-
-    shipment.risk = "MEDIUM";
-    shipment.condition = "DEGRADED";
-
-}
-else {
-
-    shipment.risk = "LOW";
-    shipment.condition = "NORMAL";
-
-}
-
-    this.update();
-
-
-if (
-    window.LogisticsRoute &&
-    typeof LogisticsRoute.update ===
-        "function"
-) {
-
-    LogisticsRoute.update();
-
-}
-
-
-if (
-    window.LogisticsPrediction &&
-    typeof window.LogisticsPrediction.update === "function"
-) {
-
-    window.LogisticsPrediction.update();
-
-}
-if (
-    window.LogisticsRecommendation &&
-    typeof window.LogisticsRecommendation.update ===
-    "function"
-) {
-
-    window.LogisticsRecommendation.update();
-
-}
-
-},
-// --------------------------------------------------------
-// START JOURNEY SIMULATION
-// --------------------------------------------------------
-
-startSimulation() {
-
-    if (this.simulationTimer) {
-
-        clearInterval(
-            this.simulationTimer
-        );
-
-    }
-
-    this.simulationTimer =
-        setInterval(
-            () => {
-
-                this.updateJourney();
-
-            },
-            3000
-        );
-
-},
 
     // --------------------------------------------------------
     // RENDER TRACKING SECTION
@@ -366,6 +435,7 @@ startSimulation() {
                 "logisticsPanel"
             );
 
+
         if (!panel) {
 
             console.error(
@@ -376,7 +446,6 @@ startSimulation() {
 
         }
 
-        // Prevent duplicate rendering.
 
         if (
             document.getElementById(
@@ -388,20 +457,36 @@ startSimulation() {
 
         }
 
+
         const section =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         section.id =
             "logisticsTrackingSection";
 
+
         section.className =
             "side-section logistics-tracking-section";
+
 
         section.innerHTML = `
 
             <div class="section-heading">
 
-                <h3>Resupply Tracking</h3>
+                <div>
+
+                    <h3>
+                        Resupply Tracking
+                    </h3>
+
+                    <p class="tracking-subtitle">
+                        Live multimodal shipment status
+                    </p>
+
+                </div>
 
                 <span class="tracking-live-label">
                     SIMULATED
@@ -409,18 +494,237 @@ startSimulation() {
 
             </div>
 
+
             <div
-                id="activeShipmentCard"
-                class="shipment-card"
+                id="activeShipmentCards"
+                class="shipment-cards"
             ></div>
 
         `;
 
-        panel.appendChild(section);
+
+        panel.appendChild(
+            section
+        );
+
 
         this.update();
 
     },
+
+
+    // --------------------------------------------------------
+    // CREATE ONE SHIPMENT CARD
+    // --------------------------------------------------------
+
+    createShipmentCard(shipment) {
+
+        const schedule =
+            this.getScheduleCondition(
+                shipment
+            );
+
+
+        const icon =
+            shipment.mode === "Aircraft"
+                ? "✈️"
+                : shipment.mode === "Supply Vessel"
+                    ? "🚢"
+                    : "📦";
+
+
+        const riskClass =
+            String(
+                shipment.risk || "LOW"
+            ).toLowerCase();
+
+
+        const conditionClass =
+            String(
+                shipment.condition || "NORMAL"
+            ).toLowerCase();
+
+
+        return `
+
+            <div class="
+                shipment-card
+                shipment-${riskClass}
+            ">
+
+                <div class="shipment-header">
+
+                    <div class="shipment-title-group">
+
+                        <span class="shipment-label">
+                            ACTIVE CARGO
+                        </span>
+
+                        <strong>
+                            ${icon}
+                            ${shipment.id}
+                        </strong>
+
+                    </div>
+
+                    <span class="
+                        shipment-status
+                        status-${riskClass}
+                    ">
+                        ${this.getStatusLabel(shipment)}
+                    </span>
+
+                </div>
+
+
+                <div class="shipment-cargo">
+
+                    <strong>
+                        ${shipment.cargo}
+                    </strong>
+
+                    <span>
+                        ${shipment.quantity}
+                    </span>
+
+                </div>
+
+
+                <div class="shipment-route">
+
+                    <div>
+
+                        <span>
+                            ORIGIN
+                        </span>
+
+                        <strong>
+                            ${shipment.origin}
+                        </strong>
+
+                    </div>
+
+                    <div class="route-arrow">
+                        →
+                    </div>
+
+                    <div>
+
+                        <span>
+                            DESTINATION
+                        </span>
+
+                        <strong>
+                            ${shipment.destination}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="shipment-details">
+
+                    <div>
+
+                        <span>
+                            TRANSPORT
+                        </span>
+
+                        <strong>
+                            ${icon}
+                            ${shipment.mode}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            ETA
+                        </span>
+
+                        <strong>
+                            ${Number(
+                                shipment.etaDays
+                            ).toFixed(1)} days
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            CONDITION
+                        </span>
+
+                        <strong>
+                            ${shipment.condition || "NORMAL"}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            SCHEDULE
+                        </span>
+
+                        <strong>
+                            ${schedule}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="shipment-progress">
+
+                    <div class="shipment-progress-header">
+
+                        <span>
+                            Journey Progress
+                        </span>
+
+                        <strong>
+                            ${Number(
+                                shipment.progress
+                            ).toFixed(0)}%
+                        </strong>
+
+                    </div>
+
+
+                    <div class="shipment-progress-track">
+
+                        <div
+                            class="shipment-progress-fill"
+                            style="
+                                width:
+                                ${Math.max(
+                                    0,
+                                    Math.min(
+                                        100,
+                                        shipment.progress
+                                    )
+                                )}%
+                            "
+                        ></div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `;
+
+    },
+
 
     // --------------------------------------------------------
     // UPDATE TRACKING UI
@@ -428,165 +732,84 @@ startSimulation() {
 
     update() {
 
-        const card =
+        const container =
             document.getElementById(
-                "activeShipmentCard"
+                "activeShipmentCards"
             );
 
-        if (!card) {
+
+        if (!container) {
 
             return;
 
         }
 
-        const shipment =
-            this.getActiveShipment();
 
-        if (!shipment) {
+        const activeShipments =
+            this.getActiveShipments();
 
-            card.innerHTML = `
 
-                <div class="shipment-empty">
-                    No active resupply mission.
-                </div>
+        // ----------------------------------------------------
+        // NO ACTIVE SHIPMENTS
+        // ----------------------------------------------------
 
-            `;
+        if (!activeShipments.length) {
+
+            const arrivedShipments =
+                this.shipments.filter(
+                    shipment =>
+                        shipment.status ===
+                        "ARRIVED"
+                );
+
+
+            if (arrivedShipments.length) {
+
+                container.innerHTML = `
+
+                    <div class="shipment-empty">
+
+                        All active missions have
+                        reached their destination.
+
+                    </div>
+
+                `;
+
+            }
+            else {
+
+                container.innerHTML = `
+
+                    <div class="shipment-empty">
+
+                        No active resupply mission.
+
+                    </div>
+
+                `;
+
+            }
+
 
             return;
 
         }
 
-        const schedule =
-            this.getScheduleCondition(
-                shipment
-            );
 
-        card.innerHTML = `
+        // ----------------------------------------------------
+        // RENDER EVERY ACTIVE SHIPMENT
+        // ----------------------------------------------------
 
-            <div class="shipment-header">
-
-                <div>
-
-                    <span class="shipment-label">
-                        ACTIVE CARGO
-                    </span>
-
-                    <strong>
-                        ${shipment.id}
-                    </strong>
-
-                </div>
-
-                <span class="shipment-status">
-                    ${this.getStatusLabel(shipment)}
-                </span>
-
-            </div>
-
-
-            <div class="shipment-cargo">
-
-                <strong>
-                    ${shipment.cargo}
-                </strong>
-
-                <span>
-                    ${shipment.quantity}
-                </span>
-
-            </div>
-
-
-            <div class="shipment-route">
-
-                <div>
-
-                    <span>ORIGIN</span>
-
-                    <strong>
-                        ${shipment.origin}
-                    </strong>
-
-                </div>
-
-                <div class="route-arrow">
-                    →
-                </div>
-
-                <div>
-
-                    <span>DESTINATION</span>
-
-                    <strong>
-                        ${shipment.destination}
-                    </strong>
-
-                </div>
-
-            </div>
-
-
-            <div class="shipment-details">
-
-    <div>
-
-        <span>TRANSPORT</span>
-
-        <strong>
-            ${shipment.mode}
-        </strong>
-
-    </div>
-
-    <div>
-
-        <span>ETA</span>
-
-        <strong>
-            ${shipment.etaDays.toFixed(1)} days
-        </strong>
-
-    </div>
-
-    <div>
-
-        <span>CONDITION</span>
-
-        <strong>
-            ${shipment.condition || "NORMAL"}
-        </strong>
-
-    </div>
-
-</div>
-
-
-            <div class="shipment-progress">
-
-                <div class="shipment-progress-header">
-
-                    <span>
-                        Journey Progress
-                    </span>
-
-                    <strong>
-                        ${shipment.progress}%
-                    </strong>
-
-                </div>
-
-                <div class="shipment-progress-track">
-
-                    <div
-                        class="shipment-progress-fill"
-                        style="width: ${shipment.progress}%"
-                    ></div>
-
-                </div>
-
-            </div>
-
-        `;
+        container.innerHTML =
+            activeShipments
+                .map(
+                    shipment =>
+                        this.createShipmentCard(
+                            shipment
+                        )
+                )
+                .join("");
 
     }
 

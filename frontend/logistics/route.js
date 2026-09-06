@@ -1,7 +1,12 @@
+// ============================================================
+// LOGISTICS ROUTE MODULE
+// Phase 3 - Multimodal Route Tracking
+// ============================================================
+
 window.LogisticsRoute = {
 
     /*
-     * Logistics route layers added to the EXISTING
+     * Route layers added to the EXISTING
      * main Leaflet map.
      *
      * We do not create another map.
@@ -9,17 +14,15 @@ window.LogisticsRoute = {
 
     mapLayers: [],
 
-    routeLine: null,
+    routeLayers: [],
 
-    shipmentMarker: null,
+    transportMarkers: [],
 
     mapReady: false,
 
 
     /*
      * Simulated operational logistics routes.
-     *
-     * These are prototype routes for the Digital Twin.
      */
 
     routes: [
@@ -87,9 +90,9 @@ window.LogisticsRoute = {
 
             shipmentId: "SUP-002",
 
-            status: "SCHEDULED",
+            status: "IN TRANSIT",
 
-            progress: 0,
+            progress: 35,
 
             etaDays: 21,
 
@@ -126,9 +129,9 @@ window.LogisticsRoute = {
     ],
 
 
-    /*
-     * Check whether Logistics is currently open.
-     */
+    // ========================================================
+    // LOGISTICS PANEL CHECK
+    // ========================================================
 
     isLogisticsOpen() {
 
@@ -150,10 +153,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Access the EXISTING Leaflet map created
-     * by script.js.
-     */
+    // ========================================================
+    // MAIN MAP ACCESS
+    // ========================================================
 
     getMainMap() {
 
@@ -184,74 +186,114 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Find the shipment currently being tracked.
-     */
+    // ========================================================
+    // GET ALL ACTIVE ROUTES
+    // ========================================================
 
-    getActiveRoute() {
+    getActiveRoutes() {
+
+        const activeRoutes = [];
+
 
         if (
             window.LogisticsTracking &&
-            typeof LogisticsTracking.getActiveShipment ===
+            typeof LogisticsTracking.getActiveShipments ===
                 "function"
         ) {
 
-            const shipment =
-                LogisticsTracking.getActiveShipment();
+            const activeShipments =
+                LogisticsTracking.getActiveShipments();
 
 
-            if (shipment) {
+            activeShipments.forEach(
+                shipment => {
 
-                const matchingRoute =
-                    this.routes.find(
-                        route =>
-                            route.shipmentId ===
-                            shipment.id
-                    );
+                    const matchingRoute =
+                        this.routes.find(
+                            route =>
+                                route.shipmentId ===
+                                shipment.id
+                        );
 
 
-                if (matchingRoute) {
+                    if (matchingRoute) {
 
-                    return {
+                        activeRoutes.push({
 
-                        ...matchingRoute,
+                            ...matchingRoute,
 
-                        status:
-                            shipment.status,
+                            status:
+                                shipment.status,
 
-                        progress:
-                            Number(
-                                shipment.progress
-                            ),
+                            progress:
+                                Number(
+                                    shipment.progress
+                                ),
 
-                        etaDays:
-                            Number(
-                                shipment.etaDays
-                            ),
+                            etaDays:
+                                Number(
+                                    shipment.etaDays
+                                ),
 
-                        risk:
-                            shipment.risk,
+                            risk:
+                                shipment.risk,
 
-                        condition:
-                            shipment.condition
+                            condition:
+                                shipment.condition
 
-                    };
+                        });
+
+                    }
 
                 }
-
-            }
+            );
 
         }
 
 
-        return this.routes[0];
+        return activeRoutes;
 
     },
 
 
-    /*
-     * Keep progress between 0 and 100.
-     */
+    // ========================================================
+    // GET PRIMARY ROUTE
+    // ========================================================
+    //
+    // Existing modules such as the Route panel still need
+    // one primary route. SUP-001 remains primary.
+    // ========================================================
+
+    getActiveRoute() {
+
+        const activeRoutes =
+            this.getActiveRoutes();
+
+
+        if (!activeRoutes.length) {
+
+            return this.routes[0];
+
+        }
+
+
+        const primary =
+            activeRoutes.find(
+                route =>
+                    route.shipmentId ===
+                    "SUP-001"
+            );
+
+
+        return primary ||
+            activeRoutes[0];
+
+    },
+
+
+    // ========================================================
+    // GET ROUTE PROGRESS
+    // ========================================================
 
     getRouteProgress(route) {
 
@@ -261,7 +303,9 @@ window.LogisticsRoute = {
 
 
         const progress =
-            Number(route.progress);
+            Number(
+                route.progress
+            );
 
 
         return Math.max(
@@ -275,10 +319,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Calculate the current shipment position
-     * along the simulated route.
-     */
+    // ========================================================
+    // CURRENT POSITION
+    // ========================================================
 
     getCurrentPosition(route) {
 
@@ -304,7 +347,8 @@ window.LogisticsRoute = {
 
 
         const position =
-            (progress / 100) * segments;
+            (progress / 100) *
+            segments;
 
 
         const segmentIndex =
@@ -315,7 +359,8 @@ window.LogisticsRoute = {
 
 
         const segmentProgress =
-            position - segmentIndex;
+            position -
+            segmentIndex;
 
 
         const start =
@@ -353,9 +398,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Determine route risk.
-     */
+    // ========================================================
+    // ROUTE RISK
+    // ========================================================
 
     getRouteRisk(route) {
 
@@ -386,9 +431,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Determine route condition.
-     */
+    // ========================================================
+    // ROUTE CONDITION
+    // ========================================================
 
     getRouteCondition(route) {
 
@@ -397,21 +442,15 @@ window.LogisticsRoute = {
         }
 
 
-        if (route.condition) {
-
-            return route.condition;
-
-        }
-
-
-        return "NORMAL";
+        return route.condition ||
+            "NORMAL";
 
     },
 
 
-    /*
-     * Determine shipment status.
-     */
+    // ========================================================
+    // ROUTE STATUS
+    // ========================================================
 
     calculateRouteStatus(route) {
 
@@ -445,9 +484,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Calculate complete route state.
-     */
+    // ========================================================
+    // CALCULATE PRIMARY ROUTE STATE
+    // ========================================================
 
     calculate() {
 
@@ -494,12 +533,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Return the correct transport icon.
-     *
-     * Vessel → 🚢
-     * Aircraft → ✈️
-     */
+    // ========================================================
+    // TRANSPORT ICON
+    // ========================================================
 
     getTransportIcon(route) {
 
@@ -538,9 +574,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Create a visible transport marker.
-     */
+    // ========================================================
+    // CREATE TRANSPORT MARKER
+    // ========================================================
 
     createTransportMarker(
         position,
@@ -651,6 +687,11 @@ window.LogisticsRoute = {
 
                 Status:
                 ${result.status}
+
+                <br>
+
+                Risk:
+                ${result.risk}
             `,
             {
                 direction:
@@ -670,10 +711,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Remove ONLY the layers created by
-     * LogisticsRoute.
-     */
+    // ========================================================
+    // CLEAR LOGISTICS MAP LAYERS
+    // ========================================================
 
     clearMapLayers() {
 
@@ -711,26 +751,24 @@ window.LogisticsRoute = {
         this.mapLayers = [];
 
 
-        this.routeLine = null;
+        this.routeLayers = [];
 
-        this.shipmentMarker = null;
+        this.transportMarkers = [];
 
         this.mapReady = false;
 
     },
 
 
-    /*
-     * Draw the route on the existing large map.
-     */
+    // ========================================================
+    // DRAW ALL ACTIVE ROUTES
+    // ========================================================
 
     updateMap() {
 
         /*
-         * CRITICAL:
-         *
-         * Logistics layers are allowed ONLY
-         * while Logistics is open.
+         * Logistics layers appear ONLY while
+         * the Logistics dashboard is open.
          */
 
         if (
@@ -755,28 +793,13 @@ window.LogisticsRoute = {
         }
 
 
-        const result =
-            this.calculate();
+        const activeRoutes =
+            this.getActiveRoutes();
 
 
-        if (
-            !result ||
-            !result.route
-        ) {
+        if (!activeRoutes.length) {
 
-            return;
-
-        }
-
-
-        const route =
-            result.route;
-
-
-        if (
-            !route.waypoints ||
-            route.waypoints.length < 2
-        ) {
+            this.clearMapLayers();
 
             return;
 
@@ -791,136 +814,187 @@ window.LogisticsRoute = {
 
 
         /*
-         * Convert waypoints to Leaflet coordinates.
+         * Draw EACH active shipment route.
          */
 
-        const coordinates =
-            route.waypoints.map(
-                waypoint => [
+        activeRoutes.forEach(
+            route => {
 
-                    waypoint.lat,
+                if (
+                    !route.waypoints ||
+                    route.waypoints.length < 2
+                ) {
 
-                    waypoint.lng
+                    return;
 
-                ]
-            );
-
-
-        /*
-         * Draw dashed operational route.
-         */
-
-        this.routeLine =
-            L.polyline(
-                coordinates,
-                {
-                    weight: 3,
-
-                    opacity: 0.8,
-
-                    dashArray:
-                        "8 8"
                 }
-            ).addTo(
-                mainMap
-            );
 
 
-        this.mapLayers.push(
-            this.routeLine
-        );
+                // --------------------------------------------
+                // ROUTE LINE
+                // --------------------------------------------
 
+                const coordinates =
+                    route.waypoints.map(
+                        waypoint => [
 
-        /*
-         * Add waypoint markers.
-         */
-
-        route.waypoints.forEach(
-            (
-                waypoint,
-                index
-            ) => {
-
-                const isDestination =
-                    index ===
-                    route.waypoints.length - 1;
-
-
-                const marker =
-                    L.circleMarker(
-                        [
                             waypoint.lat,
+
                             waypoint.lng
-                        ],
-                        {
 
-                            radius:
-                                isDestination
-                                    ? 7
-                                    : 5,
-
-                            weight:
-                                2,
-
-                            fillOpacity:
-                                0.9
-
-                        }
+                        ]
                     );
 
 
-                marker.bindTooltip(
-                    waypoint.name
-                );
+                const routeLine =
+                    L.polyline(
+                        coordinates,
+                        {
+                            weight: 3,
+
+                            opacity: 0.8,
+
+                            dashArray:
+                                "8 8"
+                        }
+                    ).addTo(
+                        mainMap
+                    );
 
 
-                marker.addTo(
-                    mainMap
+                this.routeLayers.push(
+                    routeLine
                 );
 
 
                 this.mapLayers.push(
-                    marker
+                    routeLine
                 );
+
+
+                // --------------------------------------------
+                // WAYPOINTS
+                // --------------------------------------------
+
+                route.waypoints.forEach(
+                    (
+                        waypoint,
+                        index
+                    ) => {
+
+                        const isDestination =
+                            index ===
+                            route.waypoints.length - 1;
+
+
+                        const marker =
+                            L.circleMarker(
+                                [
+                                    waypoint.lat,
+                                    waypoint.lng
+                                ],
+                                {
+
+                                    radius:
+                                        isDestination
+                                            ? 7
+                                            : 5,
+
+                                    weight:
+                                        2,
+
+                                    fillOpacity:
+                                        0.9
+
+                                }
+                            );
+
+
+                        marker.bindTooltip(
+                            waypoint.name
+                        );
+
+
+                        marker.addTo(
+                            mainMap
+                        );
+
+
+                        this.mapLayers.push(
+                            marker
+                        );
+
+                    }
+                );
+
+
+                // --------------------------------------------
+                // MOVING TRANSPORT
+                // --------------------------------------------
+
+                const position =
+                    this.getCurrentPosition(
+                        route
+                    );
+
+
+                if (!position) {
+
+                    return;
+
+                }
+
+
+                const result = {
+
+                    progress:
+                        this.getRouteProgress(
+                            route
+                        ),
+
+                    status:
+                        this.calculateRouteStatus(
+                            route
+                        ),
+
+                    risk:
+                        this.getRouteRisk(
+                            route
+                        )
+
+                };
+
+
+                const transportMarker =
+                    this.createTransportMarker(
+                        position,
+                        route,
+                        result
+                    );
+
+
+                if (
+                    transportMarker
+                ) {
+
+                    transportMarker.addTo(
+                        mainMap
+                    );
+
+
+                    this.transportMarkers.push(
+                        transportMarker
+                    );
+
+
+                    this.mapLayers.push(
+                        transportMarker
+                    );
+
+                }
 
             }
         );
-
-
-        /*
-         * Add moving ship / aircraft marker.
-         */
-
-        const position =
-            result.currentPosition;
-
-
-        if (position) {
-
-            this.shipmentMarker =
-                this.createTransportMarker(
-                    position,
-                    route,
-                    result
-                );
-
-
-            if (
-                this.shipmentMarker
-            ) {
-
-                this.shipmentMarker.addTo(
-                    mainMap
-                );
-
-
-                this.mapLayers.push(
-                    this.shipmentMarker
-                );
-
-            }
-
-        }
 
 
         this.mapReady = true;
@@ -928,17 +1002,11 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Zoom the existing large map so that
-     * the complete route is visible.
-     */
+    // ========================================================
+    // FIT MAP TO ALL ACTIVE ROUTES
+    // ========================================================
 
     fitRouteToMap() {
-
-        /*
-         * Never manipulate the map when
-         * Logistics is closed.
-         */
 
         if (
             !this.isLogisticsOpen()
@@ -958,35 +1026,46 @@ window.LogisticsRoute = {
         }
 
 
-        const result =
-            this.calculate();
+        const activeRoutes =
+            this.getActiveRoutes();
 
 
-        if (
-            !result ||
-            !result.route ||
-            !result.route.waypoints
-        ) {
-
+        if (!activeRoutes.length) {
             return;
-
         }
 
 
-        const coordinates =
-            result.route.waypoints.map(
-                waypoint => [
+        const allCoordinates = [];
 
-                    waypoint.lat,
 
-                    waypoint.lng
+        activeRoutes.forEach(
+            route => {
 
-                ]
-            );
+                if (
+                    route.waypoints
+                ) {
+
+                    route.waypoints.forEach(
+                        waypoint => {
+
+                            allCoordinates.push(
+                                [
+                                    waypoint.lat,
+                                    waypoint.lng
+                                ]
+                            );
+
+                        }
+                    );
+
+                }
+
+            }
+        );
 
 
         if (
-            coordinates.length < 2
+            allCoordinates.length < 2
         ) {
 
             return;
@@ -995,20 +1074,15 @@ window.LogisticsRoute = {
 
 
         /*
-         * Draw the route first.
+         * Draw routes first.
          */
 
         this.updateMap();
 
 
-        /*
-         * Then fit the large map around
-         * the entire route.
-         */
-
         const bounds =
             L.latLngBounds(
-                coordinates
+                allCoordinates
             );
 
 
@@ -1028,12 +1102,6 @@ window.LogisticsRoute = {
             }
         );
 
-
-        /*
-         * Leaflet sometimes needs one more
-         * size recalculation after the panel
-         * opens.
-         */
 
         setTimeout(
             () => {
@@ -1073,12 +1141,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Render the route information in the
-     * Logistics side panel.
-     *
-     * The actual map is the large main map.
-     */
+    // ========================================================
+    // RENDER PRIMARY ROUTE INFORMATION
+    // ========================================================
 
     render() {
 
@@ -1150,14 +1215,14 @@ window.LogisticsRoute = {
                     </h3>
 
                     <p>
-                        Active shipment route
+                        Active shipment routes
                         displayed on the main map.
                     </p>
 
                 </div>
 
                 <span class="route-simulated-badge">
-                    SIMULATED ROUTE
+                    SIMULATED ROUTES
                 </span>
 
             </div>
@@ -1168,28 +1233,13 @@ window.LogisticsRoute = {
                 <div class="route-location">
 
                     <span>
-                        ORIGIN
+                        PRIMARY ROUTE
                     </span>
 
                     <strong>
+                        ${transportIcon}
                         ${route.origin}
-                    </strong>
-
-                </div>
-
-
-                <div class="route-arrow">
-                    →
-                </div>
-
-
-                <div class="route-location">
-
-                    <span>
-                        DESTINATION
-                    </span>
-
-                    <strong>
+                        →
                         ${route.destination}
                     </strong>
 
@@ -1263,10 +1313,10 @@ window.LogisticsRoute = {
 
                 <span class="route-map-note-dot"></span>
 
-                ${transportIcon}
+                🚢 + ✈️
 
-                Active shipment tracked on
-                the main logistics map
+                Active multimodal shipments
+                tracked on the main map
 
             </div>
 
@@ -1276,7 +1326,7 @@ window.LogisticsRoute = {
                 <div class="route-progress-label">
 
                     <span>
-                        Journey Progress
+                        Primary Journey Progress
                     </span>
 
                     <strong>
@@ -1338,13 +1388,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Watch the Logistics panel.
-     *
-     * When another dashboard opens and
-     * logisticsPanel receives "hidden",
-     * immediately remove our route layers.
-     */
+    // ========================================================
+    // PANEL VISIBILITY
+    // ========================================================
 
     observePanelVisibility() {
 
@@ -1372,7 +1418,6 @@ window.LogisticsRoute = {
                         this.clearMapLayers();
 
                     }
-
                     else {
 
                         setTimeout(
@@ -1393,6 +1438,7 @@ window.LogisticsRoute = {
         observer.observe(
             panel,
             {
+
                 attributes:
                     true,
 
@@ -1407,9 +1453,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Initialize the Logistics Route module.
-     */
+    // ========================================================
+    // INITIALIZE
+    // ========================================================
 
     init() {
 
@@ -1423,11 +1469,6 @@ window.LogisticsRoute = {
 
         this.observePanelVisibility();
 
-
-        /*
-         * Do not draw anything while Logistics
-         * is initially closed.
-         */
 
         if (
             this.isLogisticsOpen()
@@ -1447,9 +1488,9 @@ window.LogisticsRoute = {
     },
 
 
-    /*
-     * Refresh route information and map.
-     */
+    // ========================================================
+    // UPDATE
+    // ========================================================
 
     update() {
 
@@ -1462,9 +1503,9 @@ window.LogisticsRoute = {
 };
 
 
-/*
- * Initialize after DOM is ready.
- */
+// ============================================================
+// START ROUTE MODULE
+// ============================================================
 
 document.addEventListener(
     "DOMContentLoaded",

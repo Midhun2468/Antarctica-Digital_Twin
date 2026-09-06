@@ -332,6 +332,7 @@ window.LogisticsRecommendation = {
 
                 resource:
                     resource?.name ||
+                    resource?.resource ||
                     "Resource",
 
                 quantity:

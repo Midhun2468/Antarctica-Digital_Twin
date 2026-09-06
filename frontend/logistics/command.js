@@ -1,3 +1,8 @@
+// ============================================================
+// LOGISTICS COMMAND STATUS MODULE
+// Phase 5 - Operational Decision Dashboard
+// ============================================================
+
 window.LogisticsCommand = {
 
     initialized: false,
@@ -5,9 +10,9 @@ window.LogisticsCommand = {
     updateTimer: null,
 
 
-    /*
-     * Determine whether Logistics is currently open.
-     */
+    // ========================================================
+    // LOGISTICS PANEL
+    // ========================================================
 
     isLogisticsOpen() {
 
@@ -16,13 +21,9 @@ window.LogisticsCommand = {
                 "logisticsPanel"
             );
 
-
         if (!panel) {
-
             return false;
-
         }
-
 
         return !panel.classList.contains(
             "hidden"
@@ -31,9 +32,9 @@ window.LogisticsCommand = {
     },
 
 
-    /*
-     * Safely obtain the current resource state.
-     */
+    // ========================================================
+    // RESOURCE DATA
+    // ========================================================
 
     getResourceData() {
 
@@ -47,15 +48,14 @@ window.LogisticsCommand = {
 
         }
 
-
         return null;
 
     },
 
 
-    /*
-     * Safely obtain the supply prediction.
-     */
+    // ========================================================
+    // PREDICTION
+    // ========================================================
 
     getPrediction() {
 
@@ -69,15 +69,14 @@ window.LogisticsCommand = {
 
         }
 
-
         return null;
 
     },
 
 
-    /*
-     * Safely obtain the active shipment.
-     */
+    // ========================================================
+    // PRIMARY SHIPMENT
+    // ========================================================
 
     getShipment() {
 
@@ -91,19 +90,180 @@ window.LogisticsCommand = {
 
         }
 
+        return null;
+
+    },
+
+
+    // ========================================================
+    // TRANSPORT AVAILABILITY
+    // ========================================================
+
+    getTransportAvailability() {
+
+        /*
+         * The resource module may expose transport
+         * availability in different ways depending
+         * on the current prototype state.
+         */
+
+        const resource =
+            this.getResourceData();
+
+
+        if (
+            resource &&
+            Number.isFinite(
+                Number(resource.transportAvailability)
+            )
+        ) {
+
+            return Number(
+                resource.transportAvailability
+            );
+
+        }
+
+
+        if (
+            resource &&
+            Number.isFinite(
+                Number(resource.transport)
+            )
+        ) {
+
+            return Number(
+                resource.transport
+            );
+
+        }
+
+
+        /*
+         * Use the Transport module if available.
+         */
+
+        if (
+            window.LogisticsTransport &&
+            typeof LogisticsTransport.calculate ===
+                "function"
+        ) {
+
+            const transport =
+                LogisticsTransport.calculate();
+
+
+            if (
+                transport &&
+                Number.isFinite(
+                    Number(
+                        transport.availability
+                    )
+                )
+            ) {
+
+                return Number(
+                    transport.availability
+                );
+
+            }
+
+
+            if (
+                transport &&
+                Number.isFinite(
+                    Number(
+                        transport.score
+                    )
+                )
+            ) {
+
+                return Number(
+                    transport.score
+                );
+
+            }
+
+        }
+
+
+        /*
+         * Prototype fallback.
+         *
+         * This is only used when the current
+         * modules have not exposed a value yet.
+         */
+
+        return 100;
+
+    },
+
+
+    // ========================================================
+    // RESOURCE AUTONOMY
+    // ========================================================
+
+    getResourceAutonomy(resource) {
+
+        if (!resource) {
+            return null;
+        }
+
+
+        /*
+         * Use directly supplied autonomy if available.
+         */
+
+        if (
+            Number.isFinite(
+                Number(resource.autonomy)
+            )
+        ) {
+
+            return Number(
+                resource.autonomy
+            );
+
+        }
+
+
+        /*
+         * Calculate autonomy from:
+         *
+         * Stock / Daily Use
+         */
+
+        const stock =
+            Number(
+                resource.stock
+            );
+
+
+        const dailyUse =
+            Number(
+                resource.dailyUse
+            );
+
+
+        if (
+            Number.isFinite(stock) &&
+            Number.isFinite(dailyUse) &&
+            dailyUse > 0
+        ) {
+
+            return stock / dailyUse;
+
+        }
+
 
         return null;
 
     },
 
 
-    /*
-     * Calculate overall operational status.
-     *
-     * This combines the outputs of the existing
-     * logistics modules rather than creating a
-     * separate logistics calculation.
-     */
+    // ========================================================
+    // OVERALL STATUS
+    // ========================================================
 
     calculateStatus() {
 
@@ -122,31 +282,27 @@ window.LogisticsCommand = {
         let severityScore = 0;
 
 
-        /*
-         * Resource risk.
-         */
+        // Resource risk
 
         if (resource) {
 
-            if (
-                resource.risk === "CRITICAL"
-            ) {
+            const risk =
+                String(
+                    resource.risk || "LOW"
+                ).toUpperCase();
+
+
+            if (risk === "CRITICAL") {
 
                 severityScore += 4;
 
             }
-
-            else if (
-                resource.risk === "HIGH"
-            ) {
+            else if (risk === "HIGH") {
 
                 severityScore += 3;
 
             }
-
-            else if (
-                resource.risk === "MEDIUM"
-            ) {
+            else if (risk === "MEDIUM") {
 
                 severityScore += 2;
 
@@ -155,31 +311,27 @@ window.LogisticsCommand = {
         }
 
 
-        /*
-         * Supply prediction.
-         */
+        // Prediction risk
 
         if (prediction) {
 
-            if (
-                prediction.level === "CRITICAL"
-            ) {
+            const level =
+                String(
+                    prediction.level || "SAFE"
+                ).toUpperCase();
+
+
+            if (level === "CRITICAL") {
 
                 severityScore += 4;
 
             }
-
-            else if (
-                prediction.level === "HIGH"
-            ) {
+            else if (level === "HIGH") {
 
                 severityScore += 3;
 
             }
-
-            else if (
-                prediction.level === "MEDIUM"
-            ) {
+            else if (level === "MEDIUM") {
 
                 severityScore += 2;
 
@@ -188,22 +340,27 @@ window.LogisticsCommand = {
         }
 
 
-        /*
-         * Shipment risk.
-         */
+        // Shipment risk
 
         if (shipment) {
 
+            const shipmentRisk =
+                String(
+                    shipment.risk || "LOW"
+                ).toUpperCase();
+
+
             if (
-                shipment.risk === "HIGH"
+                shipmentRisk ===
+                "HIGH"
             ) {
 
                 severityScore += 3;
 
             }
-
             else if (
-                shipment.risk === "MEDIUM"
+                shipmentRisk ===
+                "MEDIUM"
             ) {
 
                 severityScore += 2;
@@ -213,14 +370,7 @@ window.LogisticsCommand = {
         }
 
 
-        /*
-         * Convert combined severity into
-         * an operator-friendly status.
-         */
-
-        if (
-            severityScore >= 7
-        ) {
+        if (severityScore >= 7) {
 
             return {
 
@@ -240,9 +390,7 @@ window.LogisticsCommand = {
         }
 
 
-        if (
-            severityScore >= 4
-        ) {
+        if (severityScore >= 4) {
 
             return {
 
@@ -262,9 +410,7 @@ window.LogisticsCommand = {
         }
 
 
-        if (
-            severityScore >= 2
-        ) {
+        if (severityScore >= 2) {
 
             return {
 
@@ -302,13 +448,9 @@ window.LogisticsCommand = {
     },
 
 
-    /*
-     * Determine the recommended action.
-     *
-     * Uses the existing recommendation engine
-     * so Command Status remains consistent with
-     * the Resupply Recommendation module.
-     */
+    // ========================================================
+    // RECOMMENDED ACTION
+    // ========================================================
 
     getRecommendedAction() {
 
@@ -341,10 +483,6 @@ window.LogisticsCommand = {
         }
 
 
-        /*
-         * Fallback.
-         */
-
         return {
 
             title:
@@ -358,9 +496,9 @@ window.LogisticsCommand = {
     },
 
 
-    /*
-     * Render the Command Status panel.
-     */
+    // ========================================================
+    // RENDER
+    // ========================================================
 
     render() {
 
@@ -371,16 +509,9 @@ window.LogisticsCommand = {
 
 
         if (!panel) {
-
             return;
-
         }
 
-
-        /*
-         * Remove the previous Command Status
-         * section before rebuilding it.
-         */
 
         const existing =
             document.getElementById(
@@ -415,6 +546,117 @@ window.LogisticsCommand = {
             this.getRecommendedAction();
 
 
+        // ----------------------------------------------------
+        // RESOURCE AUTONOMY
+        // ----------------------------------------------------
+
+        const autonomy =
+            this.getResourceAutonomy(
+                resource
+            );
+
+
+        const autonomyDisplay =
+            autonomy !== null
+                ? Math.round(
+                    autonomy
+                ) + " days"
+                : "--";
+
+
+        const resourceName =
+            resource
+                ? (
+                    resource.name ||
+                    resource.resource ||
+                    "Resource"
+                )
+                : "Resource";
+
+
+        // ----------------------------------------------------
+        // TRANSPORT AVAILABILITY
+        // ----------------------------------------------------
+
+        const transport =
+            this.getTransportAvailability();
+
+
+        const transportDisplay =
+            Number.isFinite(
+                Number(transport)
+            )
+                ? Math.round(
+                    Number(transport)
+                ) + "%"
+                : "--";
+
+
+        // ----------------------------------------------------
+        // SUPPLY GAP
+        // ----------------------------------------------------
+
+        const gapDays =
+            prediction &&
+            Number.isFinite(
+                Number(
+                    prediction.gapDays
+                )
+            )
+                ? Math.max(
+                    0,
+                    Number(
+                        prediction.gapDays
+                    )
+                )
+                : 0;
+
+
+        const gapDisplay =
+            gapDays > 0
+                ? Math.ceil(
+                    gapDays
+                ) + " days"
+                : "NONE";
+
+
+        // ----------------------------------------------------
+        // SHIPMENT
+        // ----------------------------------------------------
+
+        const shipmentStatus =
+            shipment
+                ? shipment.status
+                : "NO DATA";
+
+
+        const shipmentEta =
+            shipment &&
+            Number.isFinite(
+                Number(
+                    shipment.etaDays
+                )
+            )
+                ? Math.ceil(
+                    Number(
+                        shipment.etaDays
+                    )
+                )
+                : "--";
+
+
+        const shipmentIcon =
+            shipment &&
+            shipment.mode ===
+                "Aircraft"
+                ? "✈️"
+                : "🚢";
+
+
+        // ----------------------------------------------------
+        // CREATE SECTION
+        // ----------------------------------------------------
+
         const section =
             document.createElement(
                 "div"
@@ -427,64 +669,6 @@ window.LogisticsCommand = {
 
         section.className =
             "logistics-command-section";
-
-
-        const autonomy =
-            resource &&
-            Number.isFinite(
-                Number(resource.autonomy)
-            )
-                ? Math.round(
-                    Number(resource.autonomy)
-                )
-                : "--";
-
-
-        const autonomyUnit =
-            resource
-                ? "days"
-                : "";
-
-
-        const transport =
-            resource &&
-            Number.isFinite(
-                Number(resource.transport)
-            )
-                ? Math.round(
-                    Number(resource.transport)
-                )
-                : "--";
-
-
-        const gapDays =
-            prediction
-                ? Math.max(
-                    0,
-                    Math.ceil(
-                        Number(
-                            prediction.gapDays || 0
-                        )
-                    )
-                )
-                : 0;
-
-
-        const shipmentStatus =
-            shipment
-                ? shipment.status
-                : "NO DATA";
-
-
-        const shipmentEta =
-            shipment &&
-            Number.isFinite(
-                Number(shipment.etaDays)
-            )
-                ? Math.ceil(
-                    Number(shipment.etaDays)
-                )
-                : "--";
 
 
         section.innerHTML = `
@@ -535,18 +719,11 @@ window.LogisticsCommand = {
                     </span>
 
                     <strong>
-                        ${autonomy}
-                        ${autonomyUnit}
+                        ${autonomyDisplay}
                     </strong>
 
                     <small>
-                        ${
-                            resource
-                                ? resource.name ||
-                                  resource.resource ||
-                                  "Resource"
-                                : "Resource"
-                        }
+                        ${resourceName}
                     </small>
 
                 </div>
@@ -559,6 +736,7 @@ window.LogisticsCommand = {
                     </span>
 
                     <strong>
+                        ${shipmentIcon}
                         ${shipmentStatus}
                     </strong>
 
@@ -578,7 +756,7 @@ window.LogisticsCommand = {
                     </span>
 
                     <strong>
-                        ${transport}%
+                        ${transportDisplay}
                     </strong>
 
                     <small>
@@ -595,11 +773,7 @@ window.LogisticsCommand = {
                     </span>
 
                     <strong>
-                        ${
-                            gapDays > 0
-                                ? gapDays + " days"
-                                : "NONE"
-                        }
+                        ${gapDisplay}
                     </strong>
 
                     <small>
@@ -678,18 +852,9 @@ window.LogisticsCommand = {
         `;
 
 
-        /*
-         * Place Command Status in the correct
-         * order:
-         *
-         * Recommendation
-         *        ↓
-         * Command Status
-         *        ↓
-         * Transport
-         *        ↓
-         * Route
-         */
+        // ----------------------------------------------------
+        // PLACE COMMAND SECTION
+        // ----------------------------------------------------
 
         const recommendationSection =
             document.getElementById(
@@ -716,7 +881,6 @@ window.LogisticsCommand = {
             );
 
         }
-
         else if (transportSection) {
 
             transportSection.before(
@@ -724,7 +888,6 @@ window.LogisticsCommand = {
             );
 
         }
-
         else if (routeSection) {
 
             routeSection.before(
@@ -732,13 +895,7 @@ window.LogisticsCommand = {
             );
 
         }
-
         else {
-
-            /*
-             * Fallback if the other sections have
-             * not been created yet.
-             */
 
             panel.appendChild(
                 section
@@ -752,9 +909,9 @@ window.LogisticsCommand = {
     },
 
 
-    /*
-     * Refresh the Command Status panel.
-     */
+    // ========================================================
+    // UPDATE
+    // ========================================================
 
     update() {
 
@@ -772,9 +929,9 @@ window.LogisticsCommand = {
     },
 
 
-    /*
-     * Start automatic refresh.
-     */
+    // ========================================================
+    // AUTO UPDATE
+    // ========================================================
 
     startAutoUpdate() {
 
@@ -806,9 +963,9 @@ window.LogisticsCommand = {
     },
 
 
-    /*
-     * Initialize the module.
-     */
+    // ========================================================
+    // INITIALIZE
+    // ========================================================
 
     init() {
 
@@ -816,11 +973,6 @@ window.LogisticsCommand = {
             "Logistics command status initialized."
         );
 
-
-        /*
-         * We only want Command Status visible
-         * when the Logistics dashboard is open.
-         */
 
         if (
             this.isLogisticsOpen()
@@ -838,9 +990,9 @@ window.LogisticsCommand = {
 };
 
 
-/*
- * Initialize after DOM is ready.
- */
+// ============================================================
+// START COMMAND MODULE
+// ============================================================
 
 document.addEventListener(
     "DOMContentLoaded",
