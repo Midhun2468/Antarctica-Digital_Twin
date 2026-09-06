@@ -1,0 +1,200 @@
+/* =========================================
+   TRANSPORT OPTION OPTIMIZER
+   ========================================= */
+
+.transport-section {
+    border-top: 1px solid #e3e9ed;
+    padding: 20px 16px;
+}
+
+
+.transport-header h3 {
+    margin: 0 0 5px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #203746;
+}
+
+
+.transport-header p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #71808b;
+}
+
+
+/* Recommended transport */
+
+.transport-recommended {
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid #d9e4e9;
+    border-radius: 8px;
+    background: #f7fafb;
+}
+
+
+.transport-recommended-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #55798b;
+    margin-bottom: 9px;
+}
+
+
+.transport-recommended-main {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+
+.transport-main-icon {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    background: #e8f1f5;
+    font-size: 20px;
+}
+
+
+.transport-recommended-main strong {
+    display: block;
+    font-size: 14px;
+    color: #203746;
+}
+
+
+.transport-recommended-main span {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    color: #72838d;
+}
+
+
+.transport-reason {
+    margin-top: 12px;
+    padding-top: 11px;
+    border-top: 1px solid #e1e8eb;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #596c77;
+}
+
+
+/* Weather */
+
+.transport-weather {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid #e0e7ea;
+    border-radius: 7px;
+    background: #ffffff;
+}
+
+
+.transport-weather span {
+    font-size: 11px;
+    color: #71808b;
+}
+
+
+.transport-weather strong {
+    font-size: 12px;
+    color: #355d70;
+}
+
+
+/* Transport options */
+
+.transport-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+
+.transport-option {
+    padding: 11px 12px;
+    border: 1px solid #e1e7ea;
+    border-radius: 7px;
+    background: #ffffff;
+}
+
+
+.transport-option.recommended {
+    border-color: #9bb8c5;
+    background: #f6fafb;
+}
+
+
+.transport-option-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+
+.transport-option-title > span {
+    font-size: 16px;
+}
+
+
+.transport-option-title strong {
+    font-size: 12px;
+    font-weight: 600;
+    color: #304956;
+}
+
+
+.transport-option-title small {
+    margin-left: auto;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: #e7f0f3;
+    color: #527487;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+
+/* Option details */
+
+.transport-option-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+
+.transport-option-details div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+
+.transport-option-details span {
+    font-size: 9px;
+    color: #89969e;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+
+.transport-option-details strong {
+    font-size: 11px;
+    color: #405865;
+}

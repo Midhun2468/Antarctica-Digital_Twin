@@ -1,0 +1,283 @@
+/* ============================================================
+   LOGISTICS MODULE
+   FINAL VISUAL SYSTEM
+   ============================================================ */
+
+.logistics-module {
+    width: 100%;
+}
+
+
+/* ============================================================
+   GLOBAL LOGISTICS SECTION SYSTEM
+   ============================================================ */
+
+#logisticsPanel {
+    --logistics-text: #253f4d;
+    --logistics-muted: #71818a;
+    --logistics-border: #dfe7ea;
+    --logistics-card: #ffffff;
+    --logistics-panel: #f8fafb;
+}
+
+
+/* Keep every section visually separated */
+
+#logisticsPanel > .side-section,
+#logisticsPanel > .logistics-module,
+#logisticsPanel > .resupply-recommendation-section,
+#logisticsPanel > .logistics-command-section {
+    box-sizing: border-box;
+}
+
+
+/* ============================================================
+   STATIC SECTION HEADINGS
+   Resource / Resource Status / Resupply Assessment
+   ============================================================ */
+
+#logisticsPanel .section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    margin-bottom: 11px;
+    padding: 7px 9px;
+
+    border-left: 3px solid #9dbdcc;
+    border-radius: 4px;
+
+    background: #f1f6f8;
+}
+
+
+#logisticsPanel .section-heading h3 {
+    margin: 0;
+
+    font-size: 13px;
+    line-height: 1.25;
+
+    font-weight: 700;
+
+    color: #304c5a;
+}
+
+
+/* ============================================================
+   STATION RESOURCES
+   ============================================================ */
+
+#logisticsPanel .side-section:first-of-type
+.section-heading {
+    border-left-color: #9dbdcc;
+    background: #f1f6f8;
+}
+
+
+/* ============================================================
+   RESOURCE STATUS
+   ============================================================ */
+
+#logisticsPanel .impact-grid {
+    gap: 7px;
+}
+
+
+#logisticsPanel .impact-card {
+    border: 1px solid #dfe7ea;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+
+#logisticsPanel .impact-card span {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #81929b;
+}
+
+
+#logisticsPanel .impact-card strong {
+    font-size: 12px;
+    font-weight: 600;
+    color: #405a67;
+}
+
+
+/* ============================================================
+   RESUPPLY ASSESSMENT
+   ============================================================ */
+
+#logisticsPanel .side-section:nth-of-type(3)
+.section-heading {
+    border-left-color: #a9c8c8;
+    background: #f1f8f7;
+}
+
+
+/* ============================================================
+   RESUPPLY TRACKING
+   ============================================================ */
+
+#logisticsTrackingSection .section-heading {
+    border-left-color: #8fbfc0;
+    background: #f0f7f7;
+}
+
+
+#logisticsTrackingSection .section-heading h3 {
+    color: #315b62;
+}
+
+
+/* ============================================================
+   WHAT-IF SCENARIO
+   ============================================================ */
+
+#logisticsPanel .scenario-section {
+    border-left: 3px solid #c7b77c;
+    background: #faf9f3;
+}
+
+
+#logisticsPanel .scenario-header h3 {
+    font-weight: 700;
+    color: #4d4935;
+}
+
+
+/* ============================================================
+   SUPPLY GAP PREDICTION
+   ============================================================ */
+
+#logisticsPanel .prediction-section {
+    border-left: 3px solid #9bbdcc;
+    background: #f4f8fa;
+}
+
+
+#logisticsPanel .prediction-header h3 {
+    font-weight: 700;
+    color: #304f5f;
+}
+
+
+/* ============================================================
+   RESUPPLY RECOMMENDATION
+   ============================================================ */
+
+#logisticsPanel .resupply-recommendation-section {
+    border-left: 3px solid #91b7a2;
+    background: #f4f8f6;
+}
+
+
+#logisticsPanel .recommendation-header h3 {
+    font-weight: 700;
+    color: #315445;
+}
+
+
+/* ============================================================
+   COMMAND STATUS
+   ============================================================ */
+
+#logisticsPanel .logistics-command-section {
+    border-left: 3px solid #9fb5c0;
+    background: #f5f8f9;
+}
+
+
+#logisticsPanel .command-header h3 {
+    font-weight: 700;
+    color: #304b58;
+}
+
+
+/* ============================================================
+   TRANSPORT RECOMMENDATION
+   ============================================================ */
+
+#logisticsPanel .transport-section {
+    border-left: 3px solid #b4a9c8;
+    background: #f7f5fa;
+}
+
+
+#logisticsPanel .transport-header h3 {
+    font-weight: 700;
+    color: #4b435d;
+}
+
+
+/* ============================================================
+   LOGISTICS ROUTE
+   ============================================================ */
+
+#logisticsPanel .route-section {
+    border-left: 3px solid #8fb6c5;
+    background: #f3f8fa;
+}
+
+
+#logisticsPanel .route-header h3 {
+    font-weight: 700;
+    color: #315364;
+}
+
+
+/* ============================================================
+   COMMON MODULE DESCRIPTIONS
+   ============================================================ */
+
+#logisticsPanel .scenario-header p,
+#logisticsPanel .prediction-header p,
+#logisticsPanel .recommendation-header p,
+#logisticsPanel .command-header p,
+#logisticsPanel .transport-header p,
+#logisticsPanel .route-header p {
+    color: #71818a;
+}
+
+
+/* ============================================================
+   COMMON CARD POLISH
+   ============================================================ */
+
+#logisticsPanel .impact-card,
+#logisticsPanel .shipment-card,
+#logisticsPanel .prediction-metric,
+#logisticsPanel .recommendation-main,
+#logisticsPanel .recommendation-detail,
+#logisticsPanel .recommendation-safe,
+#logisticsPanel .command-metric,
+#logisticsPanel .command-overall,
+#logisticsPanel .command-action,
+#logisticsPanel .transport-recommended,
+#logisticsPanel .transport-weather,
+#logisticsPanel .transport-option,
+#logisticsPanel .route-summary,
+#logisticsPanel .route-details > div {
+    box-shadow: none;
+}
+
+
+/* ============================================================
+   SMALL SCREEN
+   ============================================================ */
+
+@media (max-width: 360px) {
+
+    #logisticsPanel .section-heading h3,
+    #logisticsPanel .scenario-header h3,
+    #logisticsPanel .prediction-header h3,
+    #logisticsPanel .recommendation-header h3,
+    #logisticsPanel .command-header h3,
+    #logisticsPanel .transport-header h3,
+    #logisticsPanel .route-header h3 {
+        font-size: 13px;
+    }
+
+}

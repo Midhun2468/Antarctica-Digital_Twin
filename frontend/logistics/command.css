@@ -1,0 +1,255 @@
+/* =========================================
+   LOGISTICS COMMAND STATUS
+   ========================================= */
+
+.logistics-command-section {
+    margin: 0 0 2px 0;
+    padding: 18px 16px 17px 16px;
+    border-bottom: 1px solid #dfe7ea;
+    background: #f8fafb;
+}
+
+
+/* Header */
+
+.command-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+
+.command-eyebrow {
+    margin-bottom: 4px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    color: #80919b;
+}
+
+
+.command-header h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #253f4d;
+}
+
+
+.command-header p {
+    max-width: 255px;
+    margin: 0;
+    font-size: 10px;
+    line-height: 1.45;
+    color: #71818a;
+}
+
+
+/* Status badge */
+
+.command-status-badge {
+    flex-shrink: 0;
+    padding: 6px 8px;
+    border: 1px solid #d6e1e5;
+    border-radius: 5px;
+    background: #ffffff;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+
+/* Status variations */
+
+.command-status-badge.ready {
+    color: #4c7c65;
+}
+
+
+.command-status-badge.monitor {
+    color: #7c704b;
+}
+
+
+.command-status-badge.attention {
+    color: #88664f;
+}
+
+
+.command-status-badge.critical {
+    color: #8a5555;
+}
+
+
+/* Metric grid */
+
+.command-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+    margin-top: 14px;
+}
+
+
+.command-metric {
+    min-height: 66px;
+    padding: 10px;
+    border: 1px solid #dfe7ea;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+
+.command-metric span {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #87959d;
+}
+
+
+.command-metric strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #405a67;
+}
+
+
+.command-metric small {
+    display: block;
+    margin-top: 3px;
+    font-size: 8px;
+    color: #89969e;
+}
+
+
+/* Overall status */
+
+.command-overall {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 11px;
+    border: 1px solid #dce5e8;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+
+.command-overall.ready {
+    border-left: 3px solid #789c89;
+}
+
+
+.command-overall.monitor {
+    border-left: 3px solid #a89a6d;
+}
+
+
+.command-overall.attention {
+    border-left: 3px solid #a17d63;
+}
+
+
+.command-overall.critical {
+    border-left: 3px solid #9b6262;
+}
+
+
+.command-overall-icon {
+    width: 25px;
+    height: 25px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d5e0e4;
+    border-radius: 50%;
+    background: #fafcfc;
+    color: #607d8a;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+
+.command-overall > div:last-child {
+    min-width: 0;
+}
+
+
+.command-overall span {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    color: #89969e;
+}
+
+
+.command-overall strong {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #405865;
+}
+
+
+.command-overall p {
+    margin: 3px 0 0 0;
+    font-size: 9px;
+    line-height: 1.4;
+    color: #74838c;
+}
+
+
+/* Recommendation */
+
+.command-action {
+    margin-top: 10px;
+    padding: 11px;
+    border: 1px solid #dce5e8;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+
+.command-action span {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    color: #89969e;
+}
+
+
+.command-action strong {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #405865;
+}
+
+
+.command-action p {
+    margin: 5px 0 0 0;
+    font-size: 9px;
+    line-height: 1.45;
+    color: #71808a;
+}
+
+
+/* Source note */
+
+.command-source-note {
+    margin-top: 9px;
+    font-size: 7px;
+    line-height: 1.4;
+    color: #98a3a9;
+}

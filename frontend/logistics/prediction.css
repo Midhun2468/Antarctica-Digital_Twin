@@ -1,0 +1,186 @@
+/* ============================================================
+   LOGISTICS — SUPPLY GAP PREDICTION
+   ============================================================ */
+
+.prediction-section {
+    width: 100%;
+    margin: 0;
+    padding: 16px;
+    box-sizing: border-box;
+    border-bottom: 1px solid #dfe7ea;
+    background: #f8fafb;
+}
+
+
+/* ------------------------------------------------------------
+   MAIN CARD
+   ------------------------------------------------------------ */
+
+.prediction-card {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+}
+
+
+/* ------------------------------------------------------------
+   STATUS STRIP
+   ------------------------------------------------------------ */
+
+.prediction-status {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 0 12px 0;
+    padding: 8px 10px;
+    border: 1px solid #dce5e8;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #607783;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.3;
+}
+
+
+/* Status variations */
+
+.prediction-status.safe {
+    border-left: 3px solid #789c89;
+    color: #557463;
+    background: #f8fbf9;
+}
+
+
+.prediction-status.medium {
+    border-left: 3px solid #a89a6d;
+    color: #756a49;
+    background: #fbfaf6;
+}
+
+
+.prediction-status.high {
+    border-left: 3px solid #a17d63;
+    color: #765d4e;
+    background: #fbf8f5;
+}
+
+
+.prediction-status.critical {
+    border-left: 3px solid #9b6262;
+    color: #754e4e;
+    background: #fbf6f6;
+}
+
+
+/* ------------------------------------------------------------
+   HEADER
+   ------------------------------------------------------------ */
+
+.prediction-header {
+    width: 100%;
+    margin: 0;
+}
+
+
+.prediction-header h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    line-height: 1.25;
+    font-weight: 600;
+    color: #253f4d;
+}
+
+
+.prediction-header p {
+    margin: 0;
+    max-width: 285px;
+    font-size: 10px;
+    line-height: 1.45;
+    color: #71818a;
+}
+
+
+/* ------------------------------------------------------------
+   METRIC GRID
+   ------------------------------------------------------------ */
+
+.prediction-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    width: 100%;
+    margin-top: 13px;
+}
+
+
+.prediction-metric {
+    min-width: 0;
+    min-height: 58px;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1px solid #dfe7ea;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+
+.prediction-label {
+    display: block;
+    margin: 0 0 5px 0;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #87959d;
+    text-transform: uppercase;
+}
+
+
+.prediction-metric strong {
+    display: block;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.3;
+    font-weight: 600;
+    color: #405a67;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* ------------------------------------------------------------
+   MESSAGE
+   ------------------------------------------------------------ */
+
+.prediction-message {
+    margin-top: 10px;
+    padding: 10px 11px;
+    border: 1px solid #dce6e9;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #667983;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+
+/* ------------------------------------------------------------
+   RESPONSIVE
+   ------------------------------------------------------------ */
+
+@media (max-width: 360px) {
+
+    .prediction-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    .prediction-metric {
+        padding: 9px;
+    }
+
+    .prediction-metric strong {
+        font-size: 11px;
+    }
+
+}

@@ -1,22 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Dolphin Antarctic Digital Twin</title>
 
+    <!-- Main stylesheet -->
     <link rel="stylesheet" href="style.css">
 
+    <!-- Logistics module styles -->
+    <link rel="stylesheet" href="logistics/logistics.css">
+    <link rel="stylesheet" href="logistics/tracking.css">
+    <link rel="stylesheet" href="logistics/prediction.css">
+    <link rel="stylesheet" href="logistics/scenario.css">
+    <link rel="stylesheet" href="logistics/recommendation.css">
+    <link rel="stylesheet" href="logistics/transport.css">
+    <link rel="stylesheet" href="logistics/route.css">
+    <link rel="stylesheet" href="logistics/command.css">
+
+    <!-- Leaflet -->
     <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     >
 
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
+
+        /* =========================================================
+           SIMULATION
+        ========================================================= */
+
         .simulation-modes {
             display: grid;
             gap: 8px;
@@ -79,6 +101,7 @@
             background: #fff;
             font-size: 13px;
             color: #263238;
+            box-sizing: border-box;
         }
 
         .simulation-input-grid small {
@@ -121,6 +144,7 @@
             font-size: 12px;
             color: #263238;
             background: #fff;
+            box-sizing: border-box;
         }
 
         .empty-infrastructure {
@@ -131,8 +155,11 @@
             color: #718096;
             font-size: 12px;
         }
+
     </style>
+
 </head>
+
 
 <body>
 
@@ -143,134 +170,346 @@
         <!--<p>Indian Antarctic Research Station Monitoring</p>-->
     </div>
 
+
     <div class="header-right">
 
         <div class="station-control">
-            <label for="station">Station</label>
+
+            <label for="station">
+                Station
+            </label>
 
             <select id="station">
-                <option value="maitri">Maitri</option>
-                <option value="bharati">Bharati</option>
+
+                <option value="maitri">
+                    Maitri
+                </option>
+
+                <option value="bharati">
+                    Bharati
+                </option>
+
             </select>
+
         </div>
 
+
         <div class="live-status">
+
             <span class="live-dot"></span>
+
             LIVE DATA
+
         </div>
 
     </div>
 
 </header>
 
+
+
 <main class="app">
+
+
+    <!-- =========================================================
+         LEFT ICON BAR
+    ========================================================== -->
 
     <aside class="icon-bar">
 
-        <button class="icon-button active" data-panel="weatherPanel" title="Weather">
+
+        <!-- Weather -->
+
+        <button
+            class="icon-button active"
+            data-panel="weatherPanel"
+            title="Weather"
+        >
+
             <svg viewBox="0 0 24 24">
-                <path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 8.5a4.5 4.5 0 0 0 1 8.5Z"/>
-                <path d="M8 21h8"/>
+
+                <path
+                    d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 8.5a4.5 4.5 0 0 0 1 8.5Z"
+                />
+
+                <path d="M8 21h8" />
+
             </svg>
+
         </button>
 
-        <button class="icon-button" data-panel="simulationPanel" title="Simulation">
+
+
+        <!-- Simulation -->
+
+        <button
+            class="icon-button"
+            data-panel="simulationPanel"
+            title="Simulation"
+        >
+
             <svg viewBox="0 0 24 24">
-                <path d="M4 19V5"/>
-                <path d="M4 19h16"/>
-                <path d="m7 15 3-4 3 2 5-7"/>
+
+                <path d="M4 19V5" />
+
+                <path d="M4 19h16" />
+
+                <path d="m7 15 3-4 3 2 5-7" />
+
             </svg>
+
         </button>
 
-        <button class="icon-button" data-panel="environmentPanel" title="Environment">
+
+
+        <!-- Environment -->
+
+        <button
+            class="icon-button"
+            data-panel="environmentPanel"
+            title="Environment"
+        >
+
             <svg viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="8"/>
-                <path d="M12 4v16"/>
-                <path d="M4 12h16"/>
-                <path d="m7 7 10 10"/>
-                <path d="m17 7-10 10"/>
+
+                <circle
+                    cx="12"
+                    cy="12"
+                    r="8"
+                />
+
+                <path d="M12 4v16" />
+
+                <path d="M4 12h16" />
+
+                <path d="m7 7 10 10" />
+
+                <path d="m17 7-10 10" />
+
             </svg>
+
         </button>
 
-        <button class="icon-button" data-panel="infrastructurePanel" title="Infrastructure">
+
+
+        <!-- Infrastructure -->
+
+        <button
+            class="icon-button"
+            data-panel="infrastructurePanel"
+            title="Infrastructure"
+        >
+
             <svg viewBox="0 0 24 24">
-                <path d="M4 20V9l8-5 8 5v11"/>
-                <path d="M8 20v-6h8v6"/>
-                <path d="M9 9h2"/>
-                <path d="M13 9h2"/>
+
+                <path
+                    d="M4 20V9l8-5 8 5v11"
+                />
+
+                <path
+                    d="M8 20v-6h8v6"
+                />
+
+                <path d="M9 9h2" />
+
+                <path d="M13 9h2" />
+
             </svg>
+
         </button>
 
-        <button class="icon-button" data-panel="logisticsPanel" title="Logistics">
+
+
+        <!-- Logistics -->
+
+        <button
+            class="icon-button"
+            data-panel="logisticsPanel"
+            title="Logistics"
+        >
+
             <svg viewBox="0 0 24 24">
-                <path d="M3 7h11v10H3z"/>
-                <path d="M14 10h4l3 3v4h-7z"/>
-                <circle cx="7" cy="19" r="2"/>
-                <circle cx="18" cy="19" r="2"/>
+
+                <path d="M3 7h11v10H3z" />
+
+                <path
+                    d="M14 10h4l3 3v4h-7z"
+                />
+
+                <circle
+                    cx="7"
+                    cy="19"
+                    r="2"
+                />
+
+                <circle
+                    cx="18"
+                    cy="19"
+                    r="2"
+                />
+
             </svg>
+
         </button>
 
     </aside>
 
-    <aside class="side-panel" id="sidePanel">
 
-        <div class="panel-content" id="weatherPanel">
+
+    <!-- =========================================================
+         SIDE PANEL
+    ========================================================== -->
+
+    <aside
+        class="side-panel"
+        id="sidePanel"
+    >
+
+
+        <!-- =====================================================
+             WEATHER PANEL
+        ====================================================== -->
+
+        <div
+            class="panel-content"
+            id="weatherPanel"
+        >
 
             <div class="side-header">
+
                 <div>
-                    <h2>Weather</h2>
-                    <p id="weatherStationName">Maitri Station</p>
+
+                    <h2>
+                        Weather
+                    </h2>
+
+                    <p id="weatherStationName">
+                        Maitri Station
+                    </p>
+
                 </div>
 
-                <button class="close-panel" id="closePanel">×</button>
+                <button
+                    class="close-panel"
+                    id="closePanel"
+                >
+                    ×
+                </button>
+
             </div>
 
+
             <div class="data-source">
+
                 <span class="source-dot"></span>
+
                 NCPOR Weather Data
+
             </div>
+
 
             <div class="weather-main">
 
                 <div class="temperature">
-                    <span id="liveTemperature">--</span>
-                    <small>°C</small>
+
+                    <span id="liveTemperature">
+                        --
+                    </span>
+
+                    <small>
+                        °C
+                    </small>
+
                 </div>
 
+
                 <div class="weather-time">
-                    <span>Latest observation</span>
-                    <strong id="weatherTimestamp">--</strong>
+
+                    <span>
+                        Latest observation
+                    </span>
+
+                    <strong id="weatherTimestamp">
+                        --
+                    </strong>
+
                 </div>
 
             </div>
+
 
             <div class="weather-grid">
 
-                <div class="weather-card">
-                    <span>Wind Speed</span>
-                    <strong id="liveWind">--</strong>
-                    <small>m/s</small>
-                </div>
 
                 <div class="weather-card">
-                    <span>Air Pressure</span>
-                    <strong id="livePressure">--</strong>
-                    <small>hPa</small>
+
+                    <span>
+                        Wind Speed
+                    </span>
+
+                    <strong id="liveWind">
+                        --
+                    </strong>
+
+                    <small>
+                        m/s
+                    </small>
+
                 </div>
 
-                <div class="weather-card">
-                    <span>Humidity</span>
-                    <strong id="liveHumidity">--</strong>
-                    <small>%</small>
-                </div>
 
                 <div class="weather-card">
-                    <span>Station</span>
-                    <strong id="weatherStationCode">MAITRI</strong>
-                    <small>Antarctica</small>
+
+                    <span>
+                        Air Pressure
+                    </span>
+
+                    <strong id="livePressure">
+                        --
+                    </strong>
+
+                    <small>
+                        hPa
+                    </small>
+
+                </div>
+
+
+                <div class="weather-card">
+
+                    <span>
+                        Humidity
+                    </span>
+
+                    <strong id="liveHumidity">
+                        --
+                    </strong>
+
+                    <small>
+                        %
+                    </small>
+
+                </div>
+
+
+                <div class="weather-card">
+
+                    <span>
+                        Station
+                    </span>
+
+                    <strong id="weatherStationCode">
+                        MAITRI
+                    </strong>
+
+                    <small>
+                        Antarctica
+                    </small>
+
                 </div>
 
             </div>
+
 
             <div class="side-section">
 
@@ -279,6 +518,7 @@
                     <span id="weatherTimelineStatus">OBSERVATION</span>
                 </div>
 
+
                 <div class="chart-box">
                     <canvas id="weatherChart"></canvas>
                     <p id="weatherChartEmpty" class="chart-empty hidden">No hourly observations available</p>
@@ -286,22 +526,43 @@
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Station Location</h3>
+
+                    <h3>
+                        Station Location
+                    </h3>
+
                 </div>
+
 
                 <div class="location-info">
 
                     <div>
-                        <span>Latitude</span>
-                        <strong id="stationLatitude">70.7644° S</strong>
+
+                        <span>
+                            Latitude
+                        </span>
+
+                        <strong id="stationLatitude">
+                            70.7644° S
+                        </strong>
+
                     </div>
 
+
                     <div>
-                        <span>Longitude</span>
-                        <strong id="stationLongitude">11.7342° E</strong>
+
+                        <span>
+                            Longitude
+                        </span>
+
+                        <strong id="stationLongitude">
+                            11.7342° E
+                        </strong>
+
                     </div>
 
                 </div>
@@ -310,65 +571,148 @@
 
         </div>
 
-        <div class="panel-content hidden" id="simulationPanel">
+
+
+        <!-- =====================================================
+             SIMULATION PANEL
+        ====================================================== -->
+
+        <div
+            class="panel-content hidden"
+            id="simulationPanel"
+        >
 
             <div class="side-header">
+
                 <div>
-                    <h2>Simulation</h2>
-                    <p>Station planning and risk assessment</p>
+
+                    <h2>
+                        Simulation
+                    </h2>
+
+                    <p>
+                        Station planning and risk assessment
+                    </p>
+
                 </div>
 
-                <button class="close-panel">×</button>
+                <button class="close-panel">
+                    ×
+                </button>
+
             </div>
+
 
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Planning Tool</h3>
+
+                    <h3>
+                        Planning Tool
+                    </h3>
+
                 </div>
+
 
                 <div class="simulation-modes">
 
-                    <button class="simulation-mode active" data-mode="emergency">
-                        <strong>Emergency Simulation</strong>
-                        <small>Test station response to severe conditions</small>
+
+                    <button
+                        class="simulation-mode active"
+                        data-mode="emergency"
+                    >
+
+                        <strong>
+                            Emergency Simulation
+                        </strong>
+
+                        <small>
+                            Test station response to severe conditions
+                        </small>
+
                     </button>
 
-                    <button class="simulation-mode" data-mode="climate">
-                        <strong>Climate Risk Assessment</strong>
-                        <small>Assess environmental risk over time</small>
+
+                    <button
+                        class="simulation-mode"
+                        data-mode="climate"
+                    >
+
+                        <strong>
+                            Climate Risk Assessment
+                        </strong>
+
+                        <small>
+                            Assess environmental risk over time
+                        </small>
+
                     </button>
 
-                    <button class="simulation-mode" data-mode="infrastructure">
-                        <strong>New Infrastructure Planning</strong>
-                        <small>Evaluate infrastructure requirements</small>
+
+                    <button
+                        class="simulation-mode"
+                        data-mode="infrastructure"
+                    >
+
+                        <strong>
+                            New Infrastructure Planning
+                        </strong>
+
+                        <small>
+                            Evaluate infrastructure requirements
+                        </small>
+
                     </button>
 
                 </div>
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Simulation Period</h3>
+
+                    <h3>
+                        Simulation Period
+                    </h3>
+
                 </div>
+
 
                 <div class="date-inputs">
 
                     <div>
-                        <label for="startDate">Start Date</label>
-                        <input type="date" id="startDate">
+
+                        <label for="startDate">
+                            Start Date
+                        </label>
+
+                        <input
+                            type="date"
+                            id="startDate"
+                        >
+
                     </div>
 
+
                     <div>
-                        <label for="endDate">End Date</label>
-                        <input type="date" id="endDate">
+
+                        <label for="endDate">
+                            End Date
+                        </label>
+
+                        <input
+                            type="date"
+                            id="endDate"
+                        >
+
                     </div>
 
                 </div>
 
             </div>
+
 
             <div class="side-section">
 
@@ -376,9 +720,11 @@
                     <h3 id="simulationInputTitle">Emergency Response Inputs</h3>
                 </div>
 
+
                 <p id="simulationInputDescription">
                     Assess station response to weather and emergency conditions.
                 </p>
+
 
                 <div class="simulation-input-grid">
 
@@ -508,10 +854,15 @@
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Simulation Basis</h3>
+
+                    <h3>
+                        Simulation Basis
+                    </h3>
+
                 </div>
 
                 <div class="simulation-baseline">
@@ -534,53 +885,118 @@
                 </div>
 
                 <div class="simulation-basis">
+
                     <span id="simulationBasis">
-                        Environmental conditions vary by date and affect station energy, fuel, logistics and operational risk.
+
+                        Environmental conditions vary by date and affect
+                        station energy, fuel, logistics and operational risk.
+
                     </span>
+
                 </div>
 
             </div>
 
-            <button class="run-button" id="runSimulation">
+
+            <button
+                class="run-button"
+                id="runSimulation"
+            >
+
                 Run Simulation
+
             </button>
+
 
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Simulation Results</h3>
+
+                    <h3>
+                        Simulation Results
+                    </h3>
+
                 </div>
+
 
                 <div class="impact-grid">
 
-                    <div class="impact-card">
-                        <span>Operational Risk</span>
-                        <strong id="simulationResultRisk">--</strong>
-                    </div>
 
                     <div class="impact-card">
-                        <span>Peak Risk</span>
-                        <strong id="simulationPeakRisk">--</strong>
+
+                        <span>
+                            Operational Risk
+                        </span>
+
+                        <strong id="simulationResultRisk">
+                            --
+                        </strong>
+
                     </div>
 
-                    <div class="impact-card">
-                        <span>Energy Demand</span>
-                        <strong id="simulationEnergyDemand">--</strong>
-                    </div>
 
                     <div class="impact-card">
-                        <span>Fuel Used</span>
-                        <strong id="simulationFuelUse">--</strong>
+
+                        <span>
+                            Peak Risk
+                        </span>
+
+                        <strong id="simulationPeakRisk">
+                            --
+                        </strong>
+
                     </div>
 
-                    <div class="impact-card">
-                        <span>Fuel Remaining</span>
-                        <strong id="simulationFuelRemaining">--</strong>
-                    </div>
 
                     <div class="impact-card">
-                        <span>Resupply</span>
-                        <strong id="simulationResupply">--</strong>
+
+                        <span>
+                            Energy Demand
+                        </span>
+
+                        <strong id="simulationEnergyDemand">
+                            --
+                        </strong>
+
+                    </div>
+
+
+                    <div class="impact-card">
+
+                        <span>
+                            Fuel Used
+                        </span>
+
+                        <strong id="simulationFuelUse">
+                            --
+                        </strong>
+
+                    </div>
+
+
+                    <div class="impact-card">
+
+                        <span>
+                            Fuel Remaining
+                        </span>
+
+                        <strong id="simulationFuelRemaining">
+                            --
+                        </strong>
+
+                    </div>
+
+
+                    <div class="impact-card">
+
+                        <span>
+                            Resupply
+                        </span>
+
+                        <strong id="simulationResupply">
+                            --
+                        </strong>
+
                     </div>
 
                     <div class="impact-card">
@@ -607,13 +1023,20 @@
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Simulation Summary</h3>
+
+                    <h3>
+                        Simulation Summary
+                    </h3>
+
                 </div>
 
+
                 <div class="selected-layer">
+
                     <strong id="simulationSummaryTitle">
                         No simulation run
                     </strong>
@@ -621,109 +1044,284 @@
                     <p id="simulationLogisticsImpact">
                         Select a date range and run the simulation.
                     </p>
+
                 </div>
 
             </div>
 
         </div>
 
-        <div class="panel-content hidden" id="environmentPanel">
+
+
+        <!-- =====================================================
+             ENVIRONMENT PANEL
+        ====================================================== -->
+
+        <div
+            class="panel-content hidden"
+            id="environmentPanel"
+        >
 
             <div class="side-header">
+
                 <div>
-                    <h2>Environment</h2>
-                    <p>Antarctic conditions</p>
+
+                    <h2>
+                        Environment
+                    </h2>
+
+                    <p>
+                        Antarctic conditions
+                    </p>
+
                 </div>
 
-                <button class="close-panel">×</button>
+                <button class="close-panel">
+                    ×
+                </button>
+
             </div>
+
 
             <div class="layer-grid">
 
-                <button class="layer-button active" data-layer="temperature">
-                    <span class="layer-icon">T</span>
-                    <strong>Temperature</strong>
-                    <small>Thermal conditions</small>
+
+                <button
+                    class="layer-button active"
+                    data-layer="temperature"
+                >
+
+                    <span class="layer-icon">
+                        T
+                    </span>
+
+                    <strong>
+                        Temperature
+                    </strong>
+
+                    <small>
+                        Thermal conditions
+                    </small>
+
                 </button>
 
-                <button class="layer-button" data-layer="wind">
-                    <span class="layer-icon">W</span>
-                    <strong>Wind</strong>
-                    <small>Wind field</small>
+
+                <button
+                    class="layer-button"
+                    data-layer="wind"
+                >
+
+                    <span class="layer-icon">
+                        W
+                    </span>
+
+                    <strong>
+                        Wind
+                    </strong>
+
+                    <small>
+                        Wind field
+                    </small>
+
                 </button>
 
-                <button class="layer-button" data-layer="snow">
-                    <span class="layer-icon">S</span>
-                    <strong>Snowfall</strong>
-                    <small>Snow intensity</small>
+
+                <button
+                    class="layer-button"
+                    data-layer="snow"
+                >
+
+                    <span class="layer-icon">
+                        S
+                    </span>
+
+                    <strong>
+                        Snowfall
+                    </strong>
+
+                    <small>
+                        Snow intensity
+                    </small>
+
                 </button>
 
-                <button class="layer-button" data-layer="visibility">
-                    <span class="layer-icon">V</span>
-                    <strong>Visibility</strong>
-                    <small>Visibility conditions</small>
+
+                <button
+                    class="layer-button"
+                    data-layer="visibility"
+                >
+
+                    <span class="layer-icon">
+                        V
+                    </span>
+
+                    <strong>
+                        Visibility
+                    </strong>
+
+                    <small>
+                        Visibility conditions
+                    </small>
+
                 </button>
 
-                <button class="layer-button" data-layer="storm">
-                    <span class="layer-icon">ST</span>
-                    <strong>Storm</strong>
-                    <small>Storm severity</small>
+
+                <button
+                    class="layer-button"
+                    data-layer="storm"
+                >
+
+                    <span class="layer-icon">
+                        ST
+                    </span>
+
+                    <strong>
+                        Storm
+                    </strong>
+
+                    <small>
+                        Storm severity
+                    </small>
+
                 </button>
 
-                <button class="layer-button" data-layer="pressure">
-                    <span class="layer-icon">P</span>
-                    <strong>Pressure</strong>
-                    <small>Atmospheric pressure</small>
+
+                <button
+                    class="layer-button"
+                    data-layer="pressure"
+                >
+
+                    <span class="layer-icon">
+                        P
+                    </span>
+
+                    <strong>
+                        Pressure
+                    </strong>
+
+                    <small>
+                        Atmospheric pressure
+                    </small>
+
                 </button>
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Selected Layer</h3>
+
+                    <h3>
+                        Selected Layer
+                    </h3>
+
                 </div>
 
+
                 <div class="selected-layer">
-                    <strong id="selectedLayerName">Temperature</strong>
+
+                    <strong id="selectedLayerName">
+                        Temperature
+                    </strong>
+
                     <p id="selectedLayerDescription">
-                        Displays the current temperature conditions around the station.
+
+                        Displays the current temperature conditions
+                        around the station.
+
                     </p>
+
                 </div>
 
             </div>
 
         </div>
 
-        <div class="panel-content hidden" id="infrastructurePanel">
+
+
+        <!-- =====================================================
+             INFRASTRUCTURE PANEL
+        ====================================================== -->
+
+        <div
+            class="panel-content hidden"
+            id="infrastructurePanel"
+        >
 
             <div class="side-header">
+
                 <div>
-                    <h2>Infrastructure</h2>
-                    <p>Station infrastructure planning</p>
+
+                    <h2>
+                        Infrastructure
+                    </h2>
+
+                    <p>
+                        Station infrastructure planning
+                    </p>
+
                 </div>
 
-                <button class="close-panel">×</button>
+                <button class="close-panel">
+                    ×
+                </button>
+
             </div>
+
 
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Add Infrastructure</h3>
+
+                    <h3>
+                        Add Infrastructure
+                    </h3>
+
                 </div>
 
-                <label class="field-label">Infrastructure</label>
 
-                <select id="infrastructureType" class="full-select">
-                    <option value="solar">Solar Power System</option>
-                    <option value="wind">Wind Turbine</option>
-                    <option value="battery">Battery Storage</option>
-                    <option value="diesel">Diesel Generator</option>
-                    <option value="fuel">Fuel Storage</option>
-                    <option value="water">Water Treatment System</option>
+                <label class="field-label">
+                    Infrastructure
+                </label>
+
+
+                <select
+                    id="infrastructureType"
+                    class="full-select"
+                >
+
+                    <option value="solar">
+                        Solar Power System
+                    </option>
+
+                    <option value="wind">
+                        Wind Turbine
+                    </option>
+
+                    <option value="battery">
+                        Battery Storage
+                    </option>
+
+                    <option value="diesel">
+                        Diesel Generator
+                    </option>
+
+                    <option value="fuel">
+                        Fuel Storage
+                    </option>
+
+                    <option value="water">
+                        Water Treatment System
+                    </option>
+
                 </select>
 
-                <label class="field-label">Capacity</label>
+
+                <label class="field-label">
+                    Capacity
+                </label>
+
 
                 <div class="capacity-row">
 
@@ -735,217 +1333,438 @@
                         value="100"
                     >
 
-                    <strong id="infrastructureCapacityValue">100</strong>
+                    <strong id="infrastructureCapacityValue">
+                        100
+                    </strong>
 
-                    <span id="infrastructureUnit">kW</span>
+                    <span id="infrastructureUnit">
+                        kW
+                    </span>
 
                 </div>
+
 
                 <button
                     id="addInfrastructure"
                     class="run-button"
                 >
+
                     Add to Station
+
                 </button>
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Infrastructure Impact</h3>
+
+                    <h3>
+                        Infrastructure Impact
+                    </h3>
+
                 </div>
+
 
                 <div class="impact-grid">
 
-                    <div class="impact-card">
-                        <span>Capital Cost</span>
-                        <strong id="infraCost">₹0</strong>
-                    </div>
 
                     <div class="impact-card">
-                        <span>Energy Production</span>
-                        <strong id="infraEnergy">0 kWh/day</strong>
+
+                        <span>
+                            Capital Cost
+                        </span>
+
+                        <strong id="infraCost">
+                            ₹0
+                        </strong>
+
                     </div>
 
-                    <div class="impact-card">
-                        <span>Fuel Saved</span>
-                        <strong id="infraFuelSaved">0 L/day</strong>
-                    </div>
 
                     <div class="impact-card">
-                        <span>CO₂ Reduction</span>
-                        <strong id="infraCO2">0 kg/day</strong>
+
+                        <span>
+                            Energy Production
+                        </span>
+
+                        <strong id="infraEnergy">
+                            0 kWh/day
+                        </strong>
+
+                    </div>
+
+
+                    <div class="impact-card">
+
+                        <span>
+                            Fuel Saved
+                        </span>
+
+                        <strong id="infraFuelSaved">
+                            0 L/day
+                        </strong>
+
+                    </div>
+
+
+                    <div class="impact-card">
+
+                        <span>
+                            CO₂ Reduction
+                        </span>
+
+                        <strong id="infraCO2">
+                            0 kg/day
+                        </strong>
+
                     </div>
 
                 </div>
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Added Infrastructure</h3>
+
+                    <h3>
+                        Added Infrastructure
+                    </h3>
+
                 </div>
+
 
                 <div id="infrastructureList">
 
                     <div class="empty-infrastructure">
+
                         No infrastructure added.
+
                     </div>
 
                 </div>
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Simulation Impact</h3>
+
+                    <h3>
+                        Simulation Impact
+                    </h3>
+
                 </div>
+
 
                 <div class="impact-grid">
 
-                    <div class="impact-card">
-                        <span>Capital Cost</span>
-                        <strong id="simulationInfraCost">₹0</strong>
-                    </div>
 
                     <div class="impact-card">
-                        <span>Energy Generated</span>
+
+                        <span>
+                            Capital Cost
+                        </span>
+
+                        <strong id="simulationInfraCost">
+                            ₹0
+                        </strong>
+
+                    </div>
+
+
+                    <div class="impact-card">
+
+                        <span>
+                            Energy Generated
+                        </span>
+
                         <strong id="simulationInfraEnergy">
                             0 kWh/day
                         </strong>
+
                     </div>
 
+
                     <div class="impact-card">
-                        <span>Fuel Saved</span>
+
+                        <span>
+                            Fuel Saved
+                        </span>
+
                         <strong id="simulationInfraFuelSaved">
                             0 L/day
                         </strong>
+
                     </div>
 
+
                     <div class="impact-card">
-                        <span>CO₂ Reduction</span>
+
+                        <span>
+                            CO₂ Reduction
+                        </span>
+
                         <strong id="simulationInfraCO2">
                             0 kg/day
                         </strong>
+
                     </div>
 
                 </div>
 
             </div>
 
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Station Infrastructure</h3>
+
+                    <h3>
+                        Station Infrastructure
+                    </h3>
+
                 </div>
 
-                <div id="infrastructureListSecondary" class="empty-infrastructure">
+
+                <div
+                    id="infrastructureListSecondary"
+                    class="empty-infrastructure"
+                >
+
                     Infrastructure inventory is shown above.
+
                 </div>
 
             </div>
 
         </div>
 
-        <div class="panel-content hidden" id="logisticsPanel">
+
+
+        <!-- =====================================================
+             LOGISTICS PANEL
+        ====================================================== -->
+
+        <div
+            class="panel-content hidden"
+            id="logisticsPanel"
+            data-logistics-module
+        >
+
 
             <div class="side-header">
+
                 <div>
-                    <h2>Logistics</h2>
-                    <p>Supply and resupply planning</p>
+
+                    <h2>
+                        Logistics
+                    </h2>
+
+                    <p>
+                        Supply and resupply planning
+                    </p>
+
                 </div>
 
-                <button class="close-panel">×</button>
+                <button class="close-panel">
+                    ×
+                </button>
+
             </div>
+
+
+
+            <!-- Resource selection -->
 
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Station Resources</h3>
+
+                    <h3>
+                        Station Resources
+                    </h3>
+
                 </div>
+
 
                 <div class="control-group">
 
-                    <label class="field-label">Resource</label>
+                    <label
+                        class="field-label"
+                        for="resourceType"
+                    >
+                        Resource
+                    </label>
 
-                    <select id="resourceType" class="full-select">
-                        <option value="fuel">Fuel</option>
-                        <option value="food">Food</option>
-                        <option value="water">Water</option>
-                        <option value="medical">Medical Supplies</option>
+
+                    <select
+                        id="resourceType"
+                        class="full-select"
+                    >
+
+                        <option value="fuel">
+                            Fuel
+                        </option>
+
+                        <option value="food">
+                            Food
+                        </option>
+
+                        <option value="water">
+                            Water
+                        </option>
+
+                        <option value="medical">
+                            Medical Supplies
+                        </option>
+
                     </select>
 
                 </div>
 
             </div>
 
+
+
+            <!-- Resource status -->
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Resource Status</h3>
+
+                    <h3>
+                        Resource Status
+                    </h3>
+
                 </div>
+
 
                 <div class="impact-grid">
 
-                    <div class="impact-card">
-                        <span>Current Stock</span>
-                        <strong id="resourceStock">10,000 L</strong>
-                    </div>
 
                     <div class="impact-card">
-                        <span>Daily Consumption</span>
-                        <strong id="resourceDailyUse">250 L/day</strong>
+
+                        <span>
+                            Current Stock
+                        </span>
+
+                        <strong id="resourceStock">
+                            10,000 L
+                        </strong>
+
                     </div>
 
-                    <div class="impact-card">
-                        <span>Days Remaining</span>
-                        <strong id="resourceDays">40 days</strong>
-                    </div>
 
                     <div class="impact-card">
-                        <span>Depletion Date</span>
-                        <strong id="resourceDepletion">--</strong>
+
+                        <span>
+                            Daily Consumption
+                        </span>
+
+                        <strong id="resourceDailyUse">
+                            250 L/day
+                        </strong>
+
+                    </div>
+
+
+                    <div class="impact-card">
+
+                        <span>
+                            Days Remaining
+                        </span>
+
+                        <strong id="resourceDays">
+                            40 days
+                        </strong>
+
+                    </div>
+
+
+                    <div class="impact-card">
+
+                        <span>
+                            Depletion Date
+                        </span>
+
+                        <strong id="resourceDepletion">
+                            --
+                        </strong>
+
                     </div>
 
                 </div>
 
             </div>
 
+
+
+            <!-- Resupply assessment -->
+
             <div class="side-section">
 
                 <div class="section-heading">
-                    <h3>Resupply Assessment</h3>
+
+                    <h3>
+                        Resupply Assessment
+                    </h3>
+
                 </div>
+
 
                 <div class="logistics-card">
 
-                    <span>Transport Availability</span>
+                    <span>
+                        Transport Availability
+                    </span>
+
 
                     <div class="progress">
-                        <div id="transportProgress" style="width: 80%"></div>
+
+                        <div
+                            id="transportProgress"
+                            style="width: 80%"
+                        ></div>
+
                     </div>
 
-                    <strong id="transportValue">80%</strong>
+
+                    <strong id="transportValue">
+                        80%
+                    </strong>
 
                 </div>
+
 
                 <div class="logistics-card">
 
-                    <span>Logistics Risk</span>
+                    <span>
+                        Logistics Risk
+                    </span>
 
-                    <strong id="logisticsRisk">LOW</strong>
+                    <strong id="logisticsRisk">
+                        LOW
+                    </strong>
 
                 </div>
+
 
                 <div class="selected-layer">
 
-                    <strong id="resupplyStatus">Resupply Not Required</strong>
+                    <strong id="resupplyStatus">
+                        Resupply Not Required
+                    </strong>
 
                     <p id="resupplyMessage">
-                        Current resources are sufficient for the projected operation period.
+
+                        Current resources are sufficient for
+                        the projected operation period.
+
                     </p>
 
                 </div>
@@ -956,6 +1775,12 @@
 
     </aside>
 
+
+
+    <!-- =========================================================
+         MAIN MAP
+    ========================================================== -->
+
     <section class="map-area">
 
         <div id="windy"></div>
@@ -963,8 +1788,15 @@
         <div class="map-overlay top-left">
 
             <div class="map-title">
-                <strong id="mapStationName">Maitri Research Station</strong>
-                <span>Antarctica</span>
+
+                <strong id="mapStationName">
+                    Maitri Research Station
+                </strong>
+
+                <span>
+                    Antarctica
+                </span>
+
             </div>
 
         </div>
@@ -978,44 +1810,81 @@
         <div class="map-overlay top-right">
 
             <div class="map-status">
+
                 <span class="live-dot"></span>
-                <span id="mapDataStatus">Live weather connected</span>
+
+                <span id="mapDataStatus">
+                    Live weather connected
+                </span>
+
             </div>
 
         </div>
+
+
+
+        <!-- Map legend -->
 
         <div class="map-overlay bottom-left">
 
             <div class="map-legend">
 
+
                 <div>
+
                     <span class="legend-station"></span>
+
                     Research Station
+
                 </div>
 
+
                 <div>
+
                     <span class="legend-weather"></span>
+
                     Weather Data
+
                 </div>
 
+
                 <div>
+
                     <span class="legend-risk"></span>
+
                     Risk Area
+
                 </div>
 
             </div>
 
         </div>
 
+
+
+        <!-- Coordinates -->
+
         <div class="map-overlay bottom-right">
 
             <div class="coordinates">
 
-                <span>LAT</span>
-                <strong id="mapLatitude">70.7644° S</strong>
 
-                <span>LON</span>
-                <strong id="mapLongitude">11.7342° E</strong>
+                <span>
+                    LAT
+                </span>
+
+                <strong id="mapLatitude">
+                    70.7644° S
+                </strong>
+
+
+                <span>
+                    LON
+                </span>
+
+                <strong id="mapLongitude">
+                    11.7342° E
+                </strong>
 
             </div>
 
@@ -1219,7 +2088,47 @@
 
 </main>
 
+
+
+<!-- =============================================================
+     MAIN APPLICATION SCRIPT
+============================================================== -->
+
 <script src="script.js"></script>
 
+
+
+<!-- =============================================================
+     LOGISTICS MODULES
+
+     Order:
+     1. Tracking
+     2. Scenario
+     3. Prediction
+     4. Recommendation
+     5. Command
+     6. Transport
+     7. Route
+     8. Main Logistics bridge
+============================================================== -->
+
+<script src="logistics/tracking.js"></script>
+
+<script src="logistics/scenario.js"></script>
+
+<script src="logistics/prediction.js"></script>
+
+<script src="logistics/recommendation.js"></script>
+
+<script src="logistics/command.js"></script>
+
+<script src="logistics/transport.js"></script>
+
+<script src="logistics/route.js"></script>
+
+<script src="logistics/logistics.js"></script>
+
+
 </body>
+
 </html>

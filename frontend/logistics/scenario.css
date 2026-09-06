@@ -1,0 +1,137 @@
+/* ============================================================
+   LOGISTICS — WHAT-IF SCENARIO
+   ============================================================ */
+
+.scenario-section {
+    width: 100%;
+    margin: 0;
+    padding: 16px;
+    box-sizing: border-box;
+    border-bottom: 1px solid #dfe7ea;
+    background: #f8fafb;
+}
+
+
+/* ------------------------------------------------------------
+   HEADER
+   ------------------------------------------------------------ */
+
+.scenario-header {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+
+.scenario-header h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    line-height: 1.25;
+    font-weight: 600;
+    color: #253f4d;
+}
+
+
+.scenario-header p {
+    margin: 0;
+    max-width: 285px;
+    font-size: 10px;
+    line-height: 1.45;
+    color: #71818a;
+}
+
+
+/* ------------------------------------------------------------
+   CONTROLS
+   ------------------------------------------------------------ */
+
+.scenario-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 13px;
+}
+
+
+.scenario-button {
+    appearance: none;
+    border: 1px solid #cfdde2;
+    border-radius: 5px;
+    padding: 7px 10px;
+    background: #ffffff;
+    color: #496572;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        opacity 0.15s ease;
+}
+
+
+.scenario-button:hover {
+    background: #f2f6f7;
+    border-color: #b9cbd2;
+}
+
+
+.scenario-button:active {
+    background: #eaf0f2;
+}
+
+
+.scenario-button.secondary {
+    color: #687c85;
+    background: #ffffff;
+}
+
+
+.scenario-button:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+
+/* ------------------------------------------------------------
+   SCENARIO STATUS
+   ------------------------------------------------------------ */
+
+.scenario-status {
+    margin-top: 11px;
+    padding: 10px 11px;
+    border: 1px solid #dce6e9;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #667983;
+    font-size: 9px;
+    line-height: 1.45;
+}
+
+
+.scenario-status.active {
+    border-left: 3px solid #a17d63;
+    background: #faf8f5;
+    color: #705d50;
+    font-weight: 600;
+}
+
+
+/* ------------------------------------------------------------
+   SMALL SCREEN SAFETY
+   ------------------------------------------------------------ */
+
+@media (max-width: 360px) {
+
+    .scenario-controls {
+        align-items: stretch;
+    }
+
+    .scenario-button {
+        flex: 1;
+    }
+
+}
