@@ -44,6 +44,10 @@ class SimulationRequest(BaseModel):
     visibility: float
     storm: float
 
+class ChatRequest(BaseModel):
+    message: str
+    station: str = "maitri"
+    context: dict = {}
 
 def extract_value(text, pattern):
     match = re.search(pattern, text, re.IGNORECASE)
@@ -299,6 +303,61 @@ frontend_path = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "frontend")
 )
 
+@app.post("/api/chat")
+def chat_endpoint(request: ChatRequest):
+    try:
+        live_data = get_weather(request.station)
+    except Exception:
+        live_data = get_fallback_weather(request.station)
+
+    msg = request.message.lower().strip()
+
+    # 1. LOCAL ROUTING: Answer predictable queries without calling Gemini
+    if any(k in msg for k in ["weather", "temperature", "wind", "temp"]):
+        return {
+            "reply": f"Observed weather at {live_data['station_name']}: "
+                     f"Temperature is {live_data['temperature']}°C, "
+                     f"Wind Speed is {live_data['wind_speed']} m/s, "
+                     f"and Pressure is {live_data['pressure']} hPa."
+        }
+
+    if any(k in msg for k in ["logistics", "fuel", "resupply", "stock"]):
+        stock = request.context.get("weather", {})
+        return {
+            "reply": f"Logistics overview for {live_data['station_name']}: "
+                     f"Live temperature ({live_data['temperature']}°C) and wind ({live_data['wind_speed']} m/s) "
+                     f"are being evaluated against station supply reserves."
+        }
+
+    # 2. FALLBACK: Send to Gemini only for complex, unstructured prompts
+    api_key = os.getenv("GOOGLE_API_KEY", "")
+    if not api_key:
+        return {"reply": "Error: GEMINI_API_KEY environment variable is not set."}
+
+    system_prompt = (
+        f"You are Penguin, the chatbot.\n"
+        f"Telemetry: {live_data}\n"
+        f"Context: {request.context}\n"
+        f"Answer with very short sentences and short points (maximum 4 points)"
+    )
+
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": f"{system_prompt}\nUser Question: {request.message}"}]}],
+        "generationConfig": {"maxOutputTokens": 200}
+    }
+
+    try:
+        res = requests.post(gemini_url, json=payload, timeout=15)
+        data = res.json()
+        if res.status_code != 200:
+            return {"reply": f"API Error ({res.status_code}): {data.get('error', {}).get('message', 'Rate limited or error')}"}
+
+        reply_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return {"reply": reply_text}
+    except Exception as e:
+        return {"reply": f"Internal exception: {str(e)}"}
+    
 app.mount(
     "/",
     StaticFiles(

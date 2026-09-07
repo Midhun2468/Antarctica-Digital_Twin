@@ -2928,4 +2928,33 @@ document.getElementById("resourceType")?.addEventListener(
 
 updateLogistics();
 
+function getDashboardState() {
+    // Collects live weather data and key metrics from your actual DOM elements
+    return {
+        weather: {
+            temperature: document.querySelector('[id*="temp"]')?.innerText || "N/A",
+            windSpeed: document.querySelector('[id*="wind"]')?.innerText || "N/A",
+            humidity: document.querySelector('[id*="humidity"]')?.innerText || "N/A",
+            conditions: document.querySelector('[id*="weather"], [id*="condition"]')?.innerText || "N/A"
+        },
+        // Automatically collects text from visible cards/boxes without hardcoding IDs
+        visibleMetrics: Array.from(document.querySelectorAll('.metric, .stat, .card, .weather-box'))
+            .map(el => el.innerText.replace(/\s+/g, ' ').trim())
+            .filter(text => text.length > 0)
+            .slice(0, 10) // Caps data size to conserve API tokens
+    };
+}
+// Executes UI changes commanded by Gemini
+function handleUiAction(action) {
+    if (!action || action.type === "NONE") return;
+    
+    if (action.type === "SWITCH_TAB" && action.target) {
+        const tabBtn = document.querySelector(`[data-tab="${action.target}"]`);
+        if (tabBtn) tabBtn.click(); // Trigger existing tab click logic
+    }
+}
 
+function toggleChat() {
+  const chatWindow = document.getElementById("chat-window");
+  chatWindow.classList.toggle("hidden");
+}

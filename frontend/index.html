@@ -20,6 +20,8 @@
     <link rel="stylesheet" href="logistics/transport.css">
     <link rel="stylesheet" href="logistics/route.css">
     <link rel="stylesheet" href="logistics/command.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="icon" type="image/png" href="favicon.png">
 
     <!-- Leaflet -->
     <link
@@ -2128,6 +2130,78 @@
 
 <script src="logistics/logistics.js"></script>
 
+
+<!-- Minimal Floating UI -->
+<!-- Floating Chatbot Widget -->
+<div class="chat-widget">
+  <div id="chat-window" class="chat-window hidden">
+    <div class="chat-header">
+      <span>🐧 Ask Penguin!</span>
+      <button class="minimize-btn" onclick="toggleChat()" title="Minimize">—</button>
+    </div>
+    
+    <div class="chat-body" id="chat-messages">
+      <div class="bot-msg" style="background: #334155; color: white; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px;">Hello, I am Penguin, your Chat Agent for India's Antarctica Research Station Digital Twin</div>
+    </div>
+    
+    <div class="chat-footer">
+      <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendMessage()" />
+      <button id="chat-send-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <button id="chat-launcher" onclick="toggleChat()" class="chat-launcher-btn" title="Ask Penguin">
+    <img src="/penguin.png" id="penguin-img" alt="Penguin" onerror="this.style.display='none'; document.getElementById('penguin-emoji').style.display='inline';" />
+    <span id="penguin-emoji" style="display: none;">🐧</span>
+  </button>
+</div>
+
+<script>
+async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('chat-send-btn');
+    const logs = document.getElementById('chat-messages');
+    const stationSelect = document.getElementById('station');
+    const text = input.value.trim();
+    
+    if (!text) return;
+
+    // Append user message
+    logs.innerHTML += `<div style="background: #2563eb; color: white; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; align-self: flex-end;">${text}</div>`;
+    input.value = '';
+    
+    sendBtn.disabled = true;
+    input.disabled = true;
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: text,
+                station: stationSelect ? stationSelect.value : 'maitri'
+            })
+        });
+
+        const data = await response.json();
+        // Inside sendMessage() in index.html:
+const formattedReply = marked.parse(data.reply);
+logs.innerHTML += `<div class="chat-msg bot-msg">${formattedReply}</div>`;
+        // Append bot reply
+        //logs.innerHTML += `<div style="background: #334155; color: white; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; align-self: flex-start;">${data.reply}</div>`;
+        logs.scrollTop = logs.scrollHeight;
+
+    } catch (err) {
+        logs.innerHTML += `<div style="background: #7f1d1d; color: white; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; align-self: flex-start;">Connection error. Operational metrics normal.</div>`;
+    } finally {
+        setTimeout(() => {
+            sendBtn.disabled = false;
+            input.disabled = false;
+            input.focus();
+        }, 800);
+    }
+}
+</script>
 
 </body>
 
