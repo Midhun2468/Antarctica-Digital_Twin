@@ -10,13 +10,20 @@ from datetime import datetime, timezone
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+frontend_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("FRONTEND_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+if frontend_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=frontend_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Accept", "Content-Type"]
+    )
 
 STATIONS = {
     "maitri": {
@@ -366,3 +373,13 @@ app.mount(
     ),
     name="frontend"
 )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8000"))
+    )
