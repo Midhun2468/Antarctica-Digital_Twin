@@ -35,6 +35,9 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
     <style>
 
         /* =========================================================
@@ -1051,6 +1054,42 @@
 
             </div>
 
+            <div class="side-section early-warning-section">
+                <div class="section-heading">
+                    <h3>Early Warning</h3>
+                    <span id="earlyWarningStation">MAITRI</span>
+                </div>
+                <div id="earlyWarningSummary" class="early-warning-summary normal">
+                    <strong id="earlyWarningLevel">UNAVAILABLE</strong>
+                    <span id="earlyWarningHeadline">Waiting for station weather data.</span>
+                </div>
+                <div class="early-warning-conditions">
+                    <span>Temperature <b id="earlyWarningTemperature">--</b></span>
+                    <span>Wind <b id="earlyWarningWind">--</b></span>
+                    <span>Direction <b id="earlyWarningDirection">Data unavailable</b></span>
+                    <span>Pressure <b id="earlyWarningPressure">--</b></span>
+                    <span>Snow / precipitation <b id="earlyWarningSnow">Data unavailable</b></span>
+                    <span>Visibility / blizzard <b id="earlyWarningVisibility">Data unavailable</b></span>
+                </div>
+                <div class="early-warning-block">
+                    <strong>Triggers</strong>
+                    <ul id="earlyWarningTriggers"><li>Data unavailable</li></ul>
+                </div>
+                <div class="early-warning-block">
+                    <strong>Recommended action</strong>
+                    <p id="earlyWarningAction">Wait for the next station observation.</p>
+                </div>
+                <div class="early-warning-block">
+                    <strong>Warning timeline</strong>
+                    <div id="earlyWarningTimeline" class="early-warning-timeline">
+                        <span><b>Now</b><em>--</em></span>
+                        <span><b>Next few hours</b><em>--</em></span>
+                        <span><b>Next 24 hours</b><em>--</em></span>
+                    </div>
+                </div>
+                <small class="early-warning-source">Live weather and forecast-based assessment. No physical sensors implied.</small>
+            </div>
+
         </div>
 
 
@@ -1544,6 +1583,30 @@
 
             </div>
 
+            <div class="side-section infrastructure-health-section">
+                <div class="section-heading">
+                    <h3>Infrastructure Health</h3>
+                    <button id="refreshInfrastructureHealth" class="health-refresh" type="button">Refresh Assessment</button>
+                </div>
+                <div class="health-summary">
+                    <div>
+                        <span id="infrastructureHealthStation">MAITRI</span>
+                        <strong id="infrastructureHealthScore">--</strong>
+                    </div>
+                    <b id="infrastructureHealthStatus" class="health-summary-status">UNAVAILABLE</b>
+                </div>
+                <div class="health-counts">
+                    <span>Healthy <b id="infrastructureHealthyCount">0</b></span>
+                    <span>Warning <b id="infrastructureWarningCount">0</b></span>
+                    <span>Critical <b id="infrastructureCriticalCount">0</b></span>
+                </div>
+                <p class="health-meta">Last assessment: <span id="infrastructureHealthChecked">--</span></p>
+                <div id="infrastructureHealthAlerts" class="health-alerts">No infrastructure assets added to this station yet.</div>
+                <div class="health-subheading">Monitored assets</div>
+                <div id="infrastructureHealthCards"></div>
+                <p class="health-source">Weather Source: NCPOR station observation<br>Assessment: Weather-Based Infrastructure Health Assessment</p>
+            </div>
+
         </div>
 
 
@@ -1787,6 +1850,54 @@
 
         <div id="windy"></div>
         <div id="map"></div>
+
+        <div id="infrastructure3D">
+            <div class="infra3d-title">
+                <strong>Maitri Station Digital Twin</strong>
+                <span>Infrastructure condition model</span>
+            </div>
+
+            <div class="infra3d-legend">
+                <div><i class="normal"></i> Normal</div>
+                <div><i class="warning"></i> Warning</div>
+                <div><i class="critical"></i> Critical</div>
+            </div>
+
+            <div class="infra3d-stress-panel">
+                <div class="infra3d-stress-heading">
+                    <strong>Infrastructure Stress Test</strong>
+                    <span>Weather and simulation-based assessment</span>
+                </div>
+                <label for="infrastructureStressScenario">Scenario</label>
+                <select id="infrastructureStressScenario">
+                    <option value="weather">Current Weather</option>
+                    <option value="storm">Severe Storm</option>
+                    <option value="blizzard">Blizzard / Heavy Snow</option>
+                    <option value="power">Power Failure</option>
+                    <option value="fuel">Fuel Shortage</option>
+                    <option value="water">Water System Failure</option>
+                    <option value="combined">Combined Emergency</option>
+                </select>
+                <label for="infrastructureStressDuration">Duration</label>
+                <select id="infrastructureStressDuration">
+                    <option value="24">24 hours</option>
+                    <option value="72">72 hours</option>
+                    <option value="168">7 days</option>
+                </select>
+                <div class="infra3d-stress-actions">
+                    <button id="runInfrastructureStressTest" type="button">Run Damage Simulation</button>
+                    <button id="resetInfrastructureStressTest" type="button">Reset</button>
+                </div>
+                <p id="infrastructureStressStatus">Current weather assessment</p>
+            </div>
+
+            <div id="infra3d-tooltip"></div>
+
+            <div class="infra3d-help">
+                Drag to rotate · Scroll to zoom · Click a structure to inspect
+            </div>
+        </div>
+
         <div class="map-overlay top-left">
 
             <div class="map-title">
@@ -2018,8 +2129,29 @@
 
             <div id="infrastructureVisualization" class="visualization-content hidden">
                 <div class="visualization-header">
-                    <strong>Infrastructure Planning</strong>
-                    <span>What-if analysis</span>
+                    <strong>Infrastructure Health Overview</strong>
+                    <span>Weather-based assessment</span>
+                </div>
+
+                <div class="visualization-card infrastructure-health-overview">
+                    <span>Infrastructure Health</span>
+                    <strong><span id="visualInfrastructureHealth">--</span> - <span id="visualInfrastructureStatus">UNAVAILABLE</span></strong>
+                    <p>Active Alerts: <span id="visualInfrastructureAlerts">0</span></p>
+                    <p>Highest Risk: <span id="visualInfrastructureHighestRisk">None</span></p>
+                    <p id="visualInfrastructureEnvironment">Weather data unavailable</p>
+                </div>
+
+                <div class="visualization-card">
+                    <span>Installed Asset Health</span>
+                    <div id="visualInfrastructureBreakdown" class="visual-health-breakdown"><p>No installed infrastructure assets.</p></div>
+                </div>
+
+                <div class="visualization-card selected-infrastructure-card">
+                    <span>Selected Asset</span>
+                    <strong id="visualInfrastructureSelected">No asset selected</strong>
+                    <b id="visualInfrastructureSelectedStatus">--</b>
+                    <p id="visualInfrastructureSelectedRisk">Select an installed asset to inspect its assessed risk.</p>
+                    <p id="visualInfrastructureSelectedAction">Recommended action will appear here.</p>
                 </div>
 
                 <div class="visualization-card">
@@ -2075,6 +2207,13 @@
                 <div class="visualization-card">
                     <span>Station</span>
                     <strong id="visualEnvironmentStation">Maitri</strong>
+                </div>
+
+                <div class="visualization-card early-warning-visual-card">
+                    <span>Early Warning</span>
+                    <strong id="visualEarlyWarningLevel">UNAVAILABLE</strong>
+                    <p id="visualEarlyWarningMessage">Waiting for station weather data.</p>
+                    <p id="visualEarlyWarningAction">Recommended action will appear here.</p>
                 </div>
 
                 <div class="visualization-card">
