@@ -1498,6 +1498,10 @@ input[type="range"]::-moz-range-thumb {
     display: none !important;
 }
 
+.visualization-panel > .visualization-content:not(#weatherVisualization) {
+    display: none !important;
+}
+
 .visualization-header {
     padding-bottom: 14px;
     margin-bottom: 12px;
@@ -1551,37 +1555,6 @@ input[type="range"]::-moz-range-thumb {
     margin-top: 8px;
 }
 
-.weather-analysis-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 4px;
-}
-
-.weather-analysis-grid div {
-    padding: 9px;
-    border: 1px solid #dce4e9;
-    border-radius: 6px;
-    background: #ffffff;
-}
-
-.weather-analysis-grid small {
-    display: block;
-    color: #718391;
-    font-size: 10px;
-}
-
-.weather-analysis-grid strong {
-    display: block;
-    margin-top: 5px;
-    color: #243b4a;
-    font-size: 14px;
-}
-
-.weather-analysis-status strong {
-    color: #3b8a68;
-}
-
 @media (max-width: 1000px) {
     .map-area {
         grid-template-columns: minmax(0, 1fr) 300px;
@@ -1591,7 +1564,7 @@ input[type="range"]::-moz-range-thumb {
     position: absolute;
     inset: 0;
     z-index: 20;
-    display: none;
+    display: block;
     background: #dce4e8;
 }
 
@@ -1607,12 +1580,16 @@ input[type="range"]::-moz-range-thumb {
     height: 100%;
 }
 
-.map-area.windy-active #map {
+#map {
     visibility: hidden;
 }
 
-.map-area.windy-active #windy {
-    display: block;
+.map-area.logistics-active #map {
+    visibility: visible;
+}
+
+.map-area.logistics-active #windy {
+    visibility: hidden;
 }
 
 .visualization-panel {

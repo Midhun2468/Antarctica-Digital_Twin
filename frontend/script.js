@@ -320,11 +320,6 @@ function updateStationInformation() {
     mapLatitude.textContent = lat;
     mapLongitude.textContent = lon;
 
-    const environmentStation = document.getElementById("visualEnvironmentStation");
-    if (environmentStation) {
-        environmentStation.textContent = data.name;
-    }
-
     updateSimulationBaseline();
 
     if (latestSimulation?.station && latestSimulation.station !== currentStation) {
@@ -413,8 +408,7 @@ async function loadWeather() {
 
         updateLogistics();
         const activeLayer = document.querySelector(".layer-button.active")?.dataset.layer;
-        if (activeLayer && document.getElementById("environmentPanel")?.classList.contains("panel-content") &&
-            !document.getElementById("environmentPanel")?.classList.contains("hidden")) {
+        if (activeLayer) {
             applyMapLayer(activeLayer === "snow" ? "snowfall" : activeLayer);
         }
 
@@ -678,10 +672,6 @@ function updateVisualizationPanel(panelId) {
             ?.classList.remove("hidden");
     }
 
-    if (panelId === "environmentPanel") {
-        document.getElementById("environmentVisualization")
-            ?.classList.remove("hidden");
-    }
 }
 
 function setEnvironmentMapVisible(visible) {
@@ -690,20 +680,14 @@ function setEnvironmentMapVisible(visible) {
         return;
     }
 
-    mapArea.classList.toggle("windy-active", visible && (windyInitialized || windyEmbedActive));
     if (map) {
         setTimeout(() => map.invalidateSize(), 200);
     }
 }
 
 function setEnvironmentStatus(message, source = "Windy Map Forecast API") {
-    const status = document.getElementById("visualEnvironmentStatus");
-    const sourceElement = document.getElementById("visualEnvironmentSource");
-    if (status) {
-        status.textContent = message;
-    }
-    if (sourceElement) {
-        sourceElement.textContent = source;
+    if (mapDataStatus) {
+        mapDataStatus.textContent = `${message} (${source})`;
     }
 }
 
@@ -795,27 +779,28 @@ iconButtons.forEach(button => {
             panel.classList.remove("hidden");
             button.classList.add("active");
 
-            if (panelId === "environmentPanel") {
-                setInfrastructure3DVisible(false);
-                updateEarlyWarningSystem();
-                openEnvironmentMap();
-            } else if (panelId === "infrastructurePanel") {
-                clearEnvironmentEffect();
+            if (panelId === "infrastructurePanel") {
                 clearEarlyWarningMapLayer();
                 setEnvironmentMapVisible(false);
                 setInfrastructure3DVisible(true);
             } else {
-                clearEnvironmentEffect();
                 clearEarlyWarningMapLayer();
                 setEnvironmentMapVisible(false);
                 setInfrastructure3DVisible(false);
             }
+
+            document.querySelector(".map-area")?.classList.toggle(
+                "logistics-active",
+                panelId === "logisticsPanel"
+            );
 
             setTimeout(() => {
                 if (map) {
                     map.invalidateSize();
                 }
             }, 200);
+        } else {
+            document.querySelector(".map-area")?.classList.remove("logistics-active");
         }
     });
 });
@@ -830,7 +815,7 @@ closeButtons.forEach(button => {
             item.classList.remove("active");
         });
 
-        setEnvironmentMapVisible(false);
+        document.querySelector(".map-area")?.classList.remove("logistics-active");
 
         setTimeout(() => {
             if (map) {
@@ -871,74 +856,8 @@ function applyMapLayer(layer) {
         setWindyLayer(layer);
     } else if (windyEmbedActive) {
         showLeafletEnvironmentFallback();
-    } else {
-        activateEnvironmentLayer(layer);
     }
 
-    const visualLayer =
-        document.getElementById("visualEnvironmentLayer");
-
-    const visualValue =
-        document.getElementById("visualEnvironmentValue");
-
-    if (visualLayer) {
-        visualLayer.textContent =
-            layer === "snowfall"
-                ? "Snowfall"
-                : layer.charAt(0).toUpperCase() +
-                  layer.slice(1);
-    }
-
-    if (visualValue) {
-        const temp =
-            document.getElementById("liveTemperature")?.textContent || "--";
-
-        const wind =
-            document.getElementById("liveWind")?.textContent || "--";
-
-        if (layer === "temperature") {
-            visualValue.textContent = `${temp} °C`;
-        } else if (layer === "wind") {
-            visualValue.textContent = `${wind} m/s`;
-        } else {
-            visualValue.textContent = getEnvironmentValue(layer);
-        }
-    }
-
-    const source = document.getElementById("visualEnvironmentSource");
-    const status = document.getElementById("visualEnvironmentStatus");
-    const station = document.getElementById("visualEnvironmentStation");
-    if (source && !windyInitialized && !windyEmbedActive) {
-        source.textContent = latestWeather?.source || "Awaiting weather data";
-    }
-    if (status) {
-        status.textContent = windyInitialized || windyEmbedActive
-            ? "Windy forecast/model visualization; NCPOR observation shown as reference"
-            : latestWeather?.source === "NCPOR"
-            ? "Latest NCPOR observation"
-            : "Model estimate used for local fallback visualization";
-    }
-    if (station) {
-        station.textContent = stations[currentStation].name;
-    }
-}
-
-function getEnvironmentValue(layer) {
-    const weather = latestWeather || {};
-    const temperature = Number.isFinite(Number(weather.temperature)) ? Number(weather.temperature) : -18;
-    const wind = Number.isFinite(Number(weather.wind_speed)) ? Number(weather.wind_speed) : 8;
-    const pressure = Number.isFinite(Number(weather.pressure)) ? Number(weather.pressure) : 985;
-    const snowfall = Math.max(0, Math.min(100, 25 + Math.max(0, (-temperature - 10) * 1.8)));
-    const visibility = Math.max(15, 100 - snowfall * 0.55);
-    const storm = Math.max(0, Math.min(100, (wind - 12) * 5 + snowfall * 0.35));
-    const values = {
-        snowfall: `${snowfall.toFixed(0)} index`,
-        visibility: `${visibility.toFixed(0)}% estimated`,
-        storm: `${storm.toFixed(0)} / 100 estimated`,
-        pressure: `${formatNumber(pressure)} hPa`
-    };
-
-    return values[layer] || "Current station conditions";
 }
 
 let simulationMode = "emergency";
@@ -1970,32 +1889,13 @@ updateSimulationBaseline();
 
 initializeMap();
 updateStationInformation();
+openEnvironmentMap();
 
 setInterval(() => {
     if (!simulationRunning) {
         loadWeather();
     }
 }, 300000);
-
-let environmentLayer = null;
-let environmentMarkers = [];
-
-function clearEnvironmentEffect() {
-    if (!map) {
-        return;
-    }
-
-    if (environmentLayer) {
-        map.removeLayer(environmentLayer);
-        environmentLayer = null;
-    }
-
-    environmentMarkers.forEach(function (item) {
-        map.removeLayer(item);
-    });
-
-    environmentMarkers = [];
-}
 
 function getCurrentStationPosition() {
     const station = document.getElementById("station");
@@ -2006,292 +1906,6 @@ function getCurrentStationPosition() {
 
     return [-70.7644, 11.7342];
 }
-
-function createStationEffect(color, radius, opacity) {
-    const position = getCurrentStationPosition();
-
-    environmentLayer = L.circleMarker(position, {
-        radius: radius,
-        color: color,
-        fillColor: color,
-        fillOpacity: opacity,
-        weight: 2
-    }).addTo(map);
-}
-
-function createWindLines() {
-    const position = getCurrentStationPosition();
-
-    const offsets = [
-        [0.025, -0.035, 0.025, 0.045],
-        [-0.015, -0.045, -0.015, 0.035],
-        [0.045, -0.020, 0.045, 0.050]
-    ];
-
-    offsets.forEach(function (line) {
-        const polyline = L.polyline(
-            [
-                [
-                    position[0] + line[0],
-                    position[1] + line[1]
-                ],
-                [
-                    position[0] + line[2],
-                    position[1] + line[3]
-                ]
-            ],
-            {
-                color: "#4d7891",
-                weight: 3,
-                opacity: 0.75
-            }
-        ).addTo(map);
-
-        environmentMarkers.push(polyline);
-    });
-}
-
-function createSnowMarkers() {
-    const position = getCurrentStationPosition();
-
-    const offsets = [
-        [0.015, 0.020],
-        [-0.020, 0.030],
-        [0.030, -0.025],
-        [-0.030, -0.020],
-        [0.010, -0.045],
-        [-0.010, 0.050]
-    ];
-
-    offsets.forEach(function (offset) {
-        const marker = L.circleMarker(
-            [
-                position[0] + offset[0],
-                position[1] + offset[1]
-            ],
-            {
-                radius: 4,
-                color: "#ffffff",
-                fillColor: "#ffffff",
-                fillOpacity: 0.9,
-                weight: 1
-            }
-        ).addTo(map);
-
-        environmentMarkers.push(marker);
-    });
-}
-
-function activateEnvironmentLayer(layer) {
-    clearEnvironmentEffect();
-
-    const description =
-        document.getElementById("selectedLayerDescription");
-
-    switch (layer) {
-
-        case "temperature": {
-            const tempElement =
-                document.getElementById("liveTemperature");
-
-            const temperature =
-                parseFloat(
-                    tempElement?.textContent || "-15"
-                );
-
-            const cold =
-                Number.isNaN(temperature) || temperature <= -20;
-
-            createStationEffect(
-                cold ? "#4d9bd6" : "#e26d5c",
-                32,
-                0.28
-            );
-
-            if (description) {
-                description.textContent =
-                    `${temperature.toFixed(1)}°C — localized temperature condition at the station.`;
-            }
-
-            break;
-        }
-
-        case "wind": {
-            const windElement =
-                document.getElementById("liveWind");
-
-            const wind =
-                parseFloat(
-                    windElement?.textContent || "20"
-                );
-
-            createStationEffect(
-                "#5b8da6",
-                28,
-                0.12
-            );
-
-            createWindLines();
-
-            if (description) {
-                description.textContent =
-                    `${wind.toFixed(1)} m/s — directional wind field around the station.`;
-            }
-
-            break;
-        }
-
-        case "snowfall": {
-
-            createStationEffect(
-                "#9ec6dc",
-                30,
-                0.16
-            );
-
-            createSnowMarkers();
-
-            if (description) {
-                description.textContent =
-                    "Snowfall conditions localized around the station.";
-            }
-
-            break;
-        }
-
-        case "visibility": {
-
-            createStationEffect(
-                "#8999a4",
-                34,
-                0.20
-            );
-
-            if (description) {
-                description.textContent =
-                    "Reduced visibility zone localized around the station.";
-            }
-
-            break;
-        }
-
-        case "storm": {
-
-            createStationEffect(
-                "#d05b5b",
-                38,
-                0.25
-            );
-
-            if (description) {
-                description.textContent =
-                    "Storm risk detected — localized affected area around the station.";
-            }
-
-            break;
-        }
-
-        case "pressure": {
-
-            createStationEffect(
-                "#738fa3",
-                30,
-                0.14
-            );
-
-            if (description) {
-                description.textContent =
-                    "Atmospheric pressure condition at the station.";
-            }
-
-            break;
-        }
-    }
-}
-
-function setupEnvironmentEffects() {
-
-    const panel =
-        document.getElementById("environmentPanel");
-
-    if (!panel) {
-        return;
-    }
-
-    const buttons =
-        panel.querySelectorAll("button");
-
-    buttons.forEach(function (button) {
-
-        const text =
-            button.textContent
-                .trim()
-                .toLowerCase();
-
-        let layer = null;
-
-        if (text.includes("temperature")) {
-            layer = "temperature";
-        }
-
-        if (text.includes("wind")) {
-            layer = "wind";
-        }
-
-        if (text.includes("snow")) {
-            layer = "snowfall";
-        }
-
-        if (text.includes("visibility")) {
-            layer = "visibility";
-        }
-
-        if (text.includes("storm")) {
-            layer = "storm";
-        }
-
-        if (text.includes("pressure")) {
-            layer = "pressure";
-        }
-
-        if (!layer) {
-            return;
-        }
-
-        button.addEventListener(
-            "click",
-            function () {
-                activateEnvironmentLayer(layer);
-            }
-        );
-    });
-}
-
-
-
-const infrastructureType =
-    document.getElementById("infrastructureType");
-
-const infrastructureCapacity =
-    document.getElementById("infrastructureCapacity");
-
-const infrastructureCapacityValue =
-    document.getElementById("infrastructureCapacityValue");
-
-const infrastructureUnit =
-    document.getElementById("infrastructureUnit");
-
-const addInfrastructure =
-    document.getElementById("addInfrastructure");
-
-const infrastructureList =
-    document.getElementById("infrastructureList");
-
-const infraCost =
-    document.getElementById("infraCost");
-
-const infraEnergy =
-    document.getElementById("infraEnergy");
 
 const infraFuelSaved =
     document.getElementById("infraFuelSaved");
@@ -4655,7 +4269,6 @@ window.addEventListener("message", event => {
         windyInitializing = false;
         windyInitialized = true;
         windyAPI.allowed = message.allowed || [];
-        clearEnvironmentEffect();
         setEnvironmentMapVisible(true);
         setEnvironmentStatus("Windy GFS/ECMWF forecast visualization", "Windy forecast/model");
         updateWindyStation();
@@ -4846,7 +4459,7 @@ function clearEarlyWarningMapLayer() {
 }
 
 function updateEarlyWarningMapLayer(warning) {
-    if (!map || !document.getElementById("environmentPanel") || document.getElementById("environmentPanel").classList.contains("hidden")) return;
+    if (!map) return;
     clearEarlyWarningMapLayer();
     if (warning.level === "UNAVAILABLE" || !Number.isFinite(warning.conditions.temperature)) return;
     const colors = { NORMAL: "#4c8a70", WATCH: "#c59a4a", WARNING: "#c57d3e", CRITICAL: "#b64f4f" };
@@ -4887,3 +4500,4 @@ function updateEarlyWarningSystem() {
     updateEarlyWarningMapLayer(warning);
     return warning;
 }
+

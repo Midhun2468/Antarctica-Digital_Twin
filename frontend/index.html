@@ -267,36 +267,6 @@
 
 
 
-        <!-- Environment -->
-
-        <button
-            class="icon-button"
-            data-panel="environmentPanel"
-            title="Environment"
-        >
-
-            <svg viewBox="0 0 24 24">
-
-                <circle
-                    cx="12"
-                    cy="12"
-                    r="8"
-                />
-
-                <path d="M12 4v16" />
-
-                <path d="M4 12h16" />
-
-                <path d="m7 7 10 10" />
-
-                <path d="m17 7-10 10" />
-
-            </svg>
-
-        </button>
-
-
-
         <!-- Infrastructure -->
 
         <button
@@ -1095,193 +1065,6 @@
 
 
         <!-- =====================================================
-             ENVIRONMENT PANEL
-        ====================================================== -->
-
-        <div
-            class="panel-content hidden"
-            id="environmentPanel"
-        >
-
-            <div class="side-header">
-
-                <div>
-
-                    <h2>
-                        Environment
-                    </h2>
-
-                    <p>
-                        Antarctic conditions
-                    </p>
-
-                </div>
-
-                <button class="close-panel">
-                    ×
-                </button>
-
-            </div>
-
-
-            <div class="layer-grid">
-
-
-                <button
-                    class="layer-button active"
-                    data-layer="temperature"
-                >
-
-                    <span class="layer-icon">
-                        T
-                    </span>
-
-                    <strong>
-                        Temperature
-                    </strong>
-
-                    <small>
-                        Thermal conditions
-                    </small>
-
-                </button>
-
-
-                <button
-                    class="layer-button"
-                    data-layer="wind"
-                >
-
-                    <span class="layer-icon">
-                        W
-                    </span>
-
-                    <strong>
-                        Wind
-                    </strong>
-
-                    <small>
-                        Wind field
-                    </small>
-
-                </button>
-
-
-                <button
-                    class="layer-button"
-                    data-layer="snow"
-                >
-
-                    <span class="layer-icon">
-                        S
-                    </span>
-
-                    <strong>
-                        Snowfall
-                    </strong>
-
-                    <small>
-                        Snow intensity
-                    </small>
-
-                </button>
-
-
-                <button
-                    class="layer-button"
-                    data-layer="visibility"
-                >
-
-                    <span class="layer-icon">
-                        V
-                    </span>
-
-                    <strong>
-                        Visibility
-                    </strong>
-
-                    <small>
-                        Visibility conditions
-                    </small>
-
-                </button>
-
-
-                <button
-                    class="layer-button"
-                    data-layer="storm"
-                >
-
-                    <span class="layer-icon">
-                        ST
-                    </span>
-
-                    <strong>
-                        Storm
-                    </strong>
-
-                    <small>
-                        Storm severity
-                    </small>
-
-                </button>
-
-
-                <button
-                    class="layer-button"
-                    data-layer="pressure"
-                >
-
-                    <span class="layer-icon">
-                        P
-                    </span>
-
-                    <strong>
-                        Pressure
-                    </strong>
-
-                    <small>
-                        Atmospheric pressure
-                    </small>
-
-                </button>
-
-            </div>
-
-
-            <div class="side-section">
-
-                <div class="section-heading">
-
-                    <h3>
-                        Selected Layer
-                    </h3>
-
-                </div>
-
-
-                <div class="selected-layer">
-
-                    <strong id="selectedLayerName">
-                        Temperature
-                    </strong>
-
-                    <p id="selectedLayerDescription">
-
-                        Displays the current temperature conditions
-                        around the station.
-
-                    </p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-
-        <!-- =====================================================
              INFRASTRUCTURE PANEL
         ====================================================== -->
 
@@ -2011,47 +1794,25 @@
 
             <div id="weatherVisualization" class="visualization-content">
                 <div class="visualization-header">
-                    <strong>Weather Analysis</strong>
-                    <span id="visualWeatherStation">Maitri Research Station</span>
-                </div>
-
-                <div class="visualization-card weather-analysis-status">
-                    <span>Observation Status</span>
-                    <strong id="visualWeatherStatus">Loading weather...</strong>
-                    <p id="visualWeatherTimestamp">Waiting for the latest station observation.</p>
+                    <strong>Antarctic Environmental Conditions</strong>
+                    <span>Select a condition to display on the Windy map.</span>
                 </div>
 
                 <div class="visualization-card">
-                    <span>Current Conditions</span>
-                    <div class="weather-analysis-grid">
-                        <div>
-                            <small>Temperature</small>
-                            <strong id="visualWeatherTemperature">-- °C</strong>
-                        </div>
-                        <div>
-                            <small>Wind</small>
-                            <strong id="visualWeatherWind">-- m/s</strong>
-                        </div>
-                        <div>
-                            <small>Pressure</small>
-                            <strong id="visualWeatherPressure">-- hPa</strong>
-                        </div>
-                        <div>
-                            <small>Humidity</small>
-                            <strong id="visualWeatherHumidity">-- %</strong>
-                        </div>
+                    <div class="layer-grid">
+                        <button class="layer-button active" data-layer="temperature"><span class="layer-icon">T</span><strong>Temperature</strong><small>Thermal conditions</small></button>
+                        <button class="layer-button" data-layer="wind"><span class="layer-icon">W</span><strong>Wind</strong><small>Wind field</small></button>
+                        <button class="layer-button" data-layer="snow"><span class="layer-icon">S</span><strong>Snowfall</strong><small>Snow intensity</small></button>
+                        <button class="layer-button" data-layer="visibility"><span class="layer-icon">V</span><strong>Visibility</strong><small>Visibility conditions</small></button>
+                        <button class="layer-button" data-layer="storm"><span class="layer-icon">ST</span><strong>Storm</strong><small>Storm severity</small></button>
+                        <button class="layer-button" data-layer="pressure"><span class="layer-icon">P</span><strong>Pressure</strong><small>Atmospheric pressure</small></button>
                     </div>
                 </div>
 
-                <div class="visualization-card">
-                    <span>Operational Reading</span>
-                    <strong id="visualWeatherOperational">Awaiting weather data</strong>
-                    <p id="visualWeatherOperationalDetail">Weather conditions will be summarized here for station operations.</p>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Data Sources</span>
-                    <p>NCPOR supplies station observations. Open-Meteo supplies the hourly forecast timeline. Windy.com is reserved for spatial forecast visualization in Environment.</p>
+                <div class="visualization-card selected-layer">
+                    <span>Selected Condition</span>
+                    <strong id="selectedLayerName">Temperature</strong>
+                    <p id="selectedLayerDescription">Displays the current temperature conditions around the station.</p>
                 </div>
             </div>
 
@@ -2178,47 +1939,6 @@
                     <strong>Infrastructure Scenario</strong>
                     <p id="visualInfraSummary">
                         Add infrastructure from the planning panel to evaluate its effect.
-                    </p>
-                </div>
-            </div>
-
-            <div id="environmentVisualization" class="visualization-content hidden">
-                <div class="visualization-header">
-                    <strong>Environmental Conditions</strong>
-                    <span>Localized station view</span>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Selected Layer</span>
-                    <strong id="visualEnvironmentLayer">Temperature</strong>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Current Condition</span>
-                    <strong id="visualEnvironmentValue">--</strong>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Data Source</span>
-                    <strong id="visualEnvironmentSource">--</strong>
-                    <p id="visualEnvironmentStatus">Observation status unavailable.</p>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Station</span>
-                    <strong id="visualEnvironmentStation">Maitri</strong>
-                </div>
-
-                <div class="visualization-card early-warning-visual-card">
-                    <span>Early Warning</span>
-                    <strong id="visualEarlyWarningLevel">UNAVAILABLE</strong>
-                    <p id="visualEarlyWarningMessage">Waiting for station weather data.</p>
-                    <p id="visualEarlyWarningAction">Recommended action will appear here.</p>
-                </div>
-
-                <div class="visualization-card">
-                    <p>
-                        Windy.com provides the interactive spatial forecast. NCPOR remains the source for station observations.
                     </p>
                 </div>
             </div>
