@@ -40,118 +40,6 @@
 
     <style>
 
-        /* =========================================================
-           SIMULATION
-        ========================================================= */
-
-        .simulation-modes {
-            display: grid;
-            gap: 8px;
-        }
-
-        .simulation-mode {
-            width: 100%;
-            text-align: left;
-            padding: 12px 13px;
-            border: 1px solid #d7e0e7;
-            border-radius: 8px;
-            background: #fff;
-            cursor: pointer;
-        }
-
-        .simulation-mode strong,
-        .simulation-mode small {
-            display: block;
-        }
-
-        .simulation-mode strong {
-            font-size: 13px;
-            color: #263238;
-        }
-
-        .simulation-mode small {
-            margin-top: 4px;
-            color: #718096;
-            font-size: 11px;
-            line-height: 1.4;
-        }
-
-        .simulation-mode.active {
-            border-color: #3f7d9d;
-            background: #f2f7fa;
-        }
-
-        .simulation-input-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .simulation-input-grid > div {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .simulation-input-grid label {
-            font-size: 12px;
-            color: #52606d;
-        }
-
-        .simulation-input-grid input {
-            width: 100%;
-            padding: 9px 10px;
-            border: 1px solid #d5dde6;
-            border-radius: 7px;
-            background: #fff;
-            font-size: 13px;
-            color: #263238;
-            box-sizing: border-box;
-        }
-
-        .simulation-input-grid small {
-            font-size: 10px;
-            color: #8a96a3;
-        }
-
-        .simulation-basis {
-            padding: 11px 12px;
-            border: 1px solid #e0e6eb;
-            border-radius: 7px;
-            background: #f8fafb;
-            color: #637381;
-            font-size: 11px;
-            line-height: 1.5;
-        }
-
-        .date-inputs {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .date-inputs > div {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .date-inputs label {
-            font-size: 12px;
-            color: #52606d;
-        }
-
-        .date-inputs input {
-            width: 100%;
-            padding: 9px 10px;
-            border: 1px solid #d5dde6;
-            border-radius: 7px;
-            font-size: 12px;
-            color: #263238;
-            background: #fff;
-            box-sizing: border-box;
-        }
-
         .empty-infrastructure {
             padding: 18px;
             border: 1px dashed #cbd5dd;
@@ -245,49 +133,23 @@
 
 
 
-        <!-- Simulation -->
+        <!-- Energy Management -->
 
         <button
             class="icon-button"
-            data-panel="simulationPanel"
-            title="Simulation"
-        >
-
-            <svg viewBox="0 0 24 24">
-
-                <path d="M4 19V5" />
-
-                <path d="M4 19h16" />
-
-                <path d="m7 15 3-4 3 2 5-7" />
-
-            </svg>
-
-        </button>
-
-
-
-        <!-- Infrastructure -->
-
-        <button
-            class="icon-button"
-            data-panel="infrastructurePanel"
-            title="Infrastructure"
+            data-panel="energyPanel"
+            title="Energy Management"
         >
 
             <svg viewBox="0 0 24 24">
 
                 <path
-                    d="M4 20V9l8-5 8 5v11"
+                    d="M13 2.5 5.5 13.5H10l-1 8 7.5-11H12l1-8Z"
                 />
 
-                <path
-                    d="M8 20v-6h8v6"
-                />
+                <path d="M4 21h5" />
 
-                <path d="M9 9h2" />
-
-                <path d="M13 9h2" />
+                <path d="M15 21h5" />
 
             </svg>
 
@@ -325,6 +187,19 @@
 
             </svg>
 
+        </button>
+
+        <button
+            class="icon-button"
+            data-panel="antarctica3dPanel"
+            title="Antarctica 3D"
+        >
+            <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9"></circle>
+                <path d="M3 12c2 3 4.5 5 9 5s7-2 9-5c-2-3-4.5-5-9-5S5 9 3 12Z"></path>
+                <path d="M7 8c1 1.5 2.5 2.5 5 2.5s4-1 5-2.5"></path>
+                <path d="M7 16c1 1.5 2.5 2.5 5 2.5s4-1 5-2.5"></path>
+            </svg>
         </button>
 
     </aside>
@@ -378,7 +253,7 @@
 
                 <span class="source-dot"></span>
 
-                NCPOR Weather Data
+                Open-Meteo Weather Data
 
             </div>
 
@@ -502,6 +377,42 @@
             </div>
 
 
+            <div class="side-section early-warning-section">
+                <div class="section-heading">
+                    <h3>Early Warning</h3>
+                    <span id="earlyWarningStation">MAITRI</span>
+                </div>
+                <div id="earlyWarningSummary" class="early-warning-summary normal">
+                    <strong id="earlyWarningLevel">UNAVAILABLE</strong>
+                    <span id="earlyWarningHeadline">Waiting for station weather data.</span>
+                </div>
+                <div class="early-warning-conditions">
+                    <span>Temperature <b id="earlyWarningTemperature">--</b></span>
+                    <span>Wind <b id="earlyWarningWind">--</b></span>
+                    <span>Direction <b id="earlyWarningDirection">Data unavailable</b></span>
+                    <span>Pressure <b id="earlyWarningPressure">--</b></span>
+                    <span>Snow / precipitation <b id="earlyWarningSnow">Data unavailable</b></span>
+                    <span>Visibility / blizzard <b id="earlyWarningVisibility">Data unavailable</b></span>
+                </div>
+                <div class="early-warning-block">
+                    <strong>Triggers</strong>
+                    <ul id="earlyWarningTriggers"><li>Data unavailable</li></ul>
+                </div>
+                <div class="early-warning-block">
+                    <strong>Recommended action</strong>
+                    <p id="earlyWarningAction">Wait for the next station observation.</p>
+                </div>
+                <div class="early-warning-block">
+                    <strong>Warning timeline</strong>
+                    <div id="earlyWarningTimeline" class="early-warning-timeline">
+                        <span><b>Now</b><em>--</em></span>
+                        <span><b>Next few hours</b><em>--</em></span>
+                        <span><b>Next 24 hours</b><em>--</em></span>
+                    </div>
+                </div>
+                <small class="early-warning-source">Live weather and forecast-based assessment. No physical sensors implied.</small>
+            </div>
+
             <div class="side-section">
 
                 <div class="section-heading">
@@ -545,16 +456,15 @@
             </div>
 
         </div>
-
-
+        
 
         <!-- =====================================================
-             SIMULATION PANEL
+             ENERGY MANAGEMENT PANEL
         ====================================================== -->
 
         <div
             class="panel-content hidden"
-            id="simulationPanel"
+            id="energyPanel"
         >
 
             <div class="side-header">
@@ -562,11 +472,11 @@
                 <div>
 
                     <h2>
-                        Simulation
+                        Energy Management
                     </h2>
 
                     <p>
-                        Station planning and risk assessment
+                        Station power generation and consumption
                     </p>
 
                 </div>
@@ -583,64 +493,91 @@
                 <div class="section-heading">
 
                     <h3>
-                        Planning Tool
+                        Current Energy Status
                     </h3>
 
-                </div>
-
-
-                <div class="simulation-modes">
-
-
-                    <button
-                        class="simulation-mode active"
-                        data-mode="emergency"
-                    >
-
-                        <strong>
-                            Emergency Simulation
-                        </strong>
-
-                        <small>
-                            Test station response to severe conditions
-                        </small>
-
-                    </button>
-
-
-                    <button
-                        class="simulation-mode"
-                        data-mode="climate"
-                    >
-
-                        <strong>
-                            Climate Risk Assessment
-                        </strong>
-
-                        <small>
-                            Assess environmental risk over time
-                        </small>
-
-                    </button>
-
-
-                    <button
-                        class="simulation-mode"
-                        data-mode="infrastructure"
-                    >
-
-                        <strong>
-                            New Infrastructure Planning
-                        </strong>
-
-                        <small>
-                            Evaluate infrastructure requirements
-                        </small>
-
+                    <button id="refreshEnergyStatus" class="health-refresh" type="button">
+                        Refresh
                     </button>
 
                 </div>
 
+
+                <div class="energy-status-grid">
+
+                    <div class="energy-metric">
+
+                        <span>
+                            Current generation
+                        </span>
+
+                        <strong id="energyGenerationNow">
+                            -- kW
+                        </strong>
+
+                        <small id="energyGenerationDetail">
+                            Solar, wind and backup output
+                        </small>
+
+                    </div>
+
+
+                    <div class="energy-metric">
+
+                        <span>
+                            Current consumption
+                        </span>
+
+                        <strong id="energyConsumptionNow">
+                            -- kW
+                        </strong>
+
+                        <small id="energyConsumptionDetail">
+                            Station load
+                        </small>
+
+                    </div>
+
+
+                    <div class="energy-metric wide">
+
+                        <span>
+                            Battery / storage level
+                        </span>
+
+                        <strong id="energyStorageNow">
+                            -- %
+                        </strong>
+
+                        <div class="energy-meter">
+                            <i id="energyStorageBar"></i>
+                        </div>
+
+                        <small id="energyStorageDetail">
+                            Storage capacity unavailable
+                        </small>
+
+                    </div>
+
+
+                    <div class="energy-metric wide">
+
+                        <span>
+                            Power balance
+                        </span>
+
+                        <strong id="energyBalanceNow">
+                            -- kW
+                        </strong>
+
+                        <b id="energyBalanceState" class="energy-state-pill">
+                            --
+                        </b>
+
+                    </div>
+
+                </div>
+
             </div>
 
 
@@ -649,183 +586,16 @@
                 <div class="section-heading">
 
                     <h3>
-                        Simulation Period
+                        Energy Sources
                     </h3>
 
                 </div>
 
 
-                <div class="date-inputs">
-
-                    <div>
-
-                        <label for="startDate">
-                            Start Date
-                        </label>
-
-                        <input
-                            type="date"
-                            id="startDate"
-                        >
-
-                    </div>
-
-
-                    <div>
-
-                        <label for="endDate">
-                            End Date
-                        </label>
-
-                        <input
-                            type="date"
-                            id="endDate"
-                        >
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <div class="side-section">
-
-                <div class="section-heading">
-                    <h3 id="simulationInputTitle">Emergency Response Inputs</h3>
-                </div>
-
-
-                <p id="simulationInputDescription">
-                    Assess station response to weather and emergency conditions.
-                </p>
-
-
-                <div class="simulation-input-grid">
-
-                    <div class="scenario-field emergency-field climate-field">
-                        <label for="personnel">Personnel</label>
-                        <input type="number" id="personnel" value="45" min="1" max="200">
-                    </div>
-
-                    <div class="scenario-field emergency-field">
-                        <label for="dailyEnergy">Daily Energy</label>
-                        <input type="number" id="dailyEnergy" value="1200" min="100">
-                        <small>kWh/day</small>
-                    </div>
-
-                    <div class="scenario-field emergency-field">
-                        <label for="fuelStock">Fuel Stock</label>
-                        <input type="number" id="fuelStock" value="10000" min="0">
-                        <small>L</small>
-                    </div>
-
-                    <div class="scenario-field emergency-field">
-                        <label for="waterStock">Water Stock</label>
-                        <input type="number" id="waterStock" value="6000" min="0">
-                        <small>L</small>
-                    </div>
-
-                    <div class="scenario-field emergency-field">
-                        <label for="foodStock">Food Stock</label>
-                        <input type="number" id="foodStock" value="3000" min="0">
-                        <small>kg</small>
-                    </div>
-
-                    <div class="scenario-field emergency-field">
-                        <label for="medicalStock">Medical Supplies</label>
-                        <input type="number" id="medicalStock" value="500" min="0">
-                        <small>units</small>
-                    </div>
-
-                    <div class="scenario-field emergency-field">
-                        <label for="emergencySeverity">Emergency Severity</label>
-                        <select id="emergencySeverity">
-                            <option value="normal">Normal</option>
-                            <option value="severe">Severe</option>
-                            <option value="critical">Critical</option>
-                        </select>
-                    </div>
-
-                    <div class="scenario-field emergency-field">
-                        <label for="transportAvailability">Transport Availability</label>
-                        <input type="number" id="transportAvailability" value="85" min="0" max="100">
-                        <small>% available</small>
-                    </div>
-
-                    <div class="scenario-field climate-field hidden">
-                        <label for="temperatureSensitivity">Temperature Sensitivity</label>
-                        <input type="number" id="temperatureSensitivity" value="1" min="0" max="3" step="0.1">
-                        <small>risk multiplier</small>
-                    </div>
-
-                    <div class="scenario-field climate-field hidden">
-                        <label for="windSensitivity">Wind Sensitivity</label>
-                        <input type="number" id="windSensitivity" value="1" min="0" max="3" step="0.1">
-                        <small>risk multiplier</small>
-                    </div>
-
-                    <div class="scenario-field climate-field hidden">
-                        <label for="snowfallSensitivity">Snowfall Sensitivity</label>
-                        <input type="number" id="snowfallSensitivity" value="1" min="0" max="3" step="0.1">
-                        <small>risk multiplier</small>
-                    </div>
-
-                    <div class="scenario-field climate-field hidden">
-                        <label for="stormSensitivity">Storm Sensitivity</label>
-                        <input type="number" id="stormSensitivity" value="1" min="0" max="3" step="0.1">
-                        <small>risk multiplier</small>
-                    </div>
-
-                    <div class="scenario-field climate-field hidden">
-                        <label for="baselineRisk">Baseline Risk</label>
-                        <input type="number" id="baselineRisk" value="10" min="0" max="100">
-                        <small>risk points</small>
-                    </div>
-
-                    <div class="scenario-field infrastructure-field hidden">
-                        <label for="planningInfrastructureType">Infrastructure Type</label>
-                        <select id="planningInfrastructureType">
-                            <option value="solar">Solar Power System</option>
-                            <option value="wind">Wind Turbine</option>
-                            <option value="battery">Battery Storage</option>
-                            <option value="diesel">Diesel Generator</option>
-                            <option value="fuel">Fuel Storage</option>
-                            <option value="water">Water Treatment System</option>
-                        </select>
-                    </div>
-
-                    <div class="scenario-field infrastructure-field hidden">
-                        <label for="planningCapacity">Planned Capacity</label>
-                        <input type="number" id="planningCapacity" value="100" min="1">
-                        <small>kW / kWh / L</small>
-                    </div>
-
-                    <div class="scenario-field infrastructure-field hidden">
-                        <label for="projectLifetime">Project Lifetime</label>
-                        <input type="number" id="projectLifetime" value="20" min="1" max="50">
-                        <small>years</small>
-                    </div>
-
-                    <div class="scenario-field infrastructure-field hidden">
-                        <label for="expectedUtilization">Expected Utilization</label>
-                        <input type="number" id="expectedUtilization" value="80" min="0" max="100">
-                        <small>% of capacity</small>
-                    </div>
-
-                    <div class="scenario-field infrastructure-field hidden">
-                        <label for="installationCost">Installation Cost</label>
-                        <input type="number" id="installationCost" value="0" min="0">
-                        <small>₹ optional override</small>
-                    </div>
-
-                    <div class="scenario-field infrastructure-field hidden">
-                        <label for="infrastructureEnergyRequirement">Energy Requirement</label>
-                        <input type="number" id="infrastructureEnergyRequirement" value="1200" min="100">
-                        <small>kWh/day</small>
-                    </div>
-
-                </div>
+                <div
+                    id="energySourceCards"
+                    class="energy-source-grid"
+                ></div>
 
             </div>
 
@@ -835,168 +605,75 @@
                 <div class="section-heading">
 
                     <h3>
-                        Simulation Basis
-                    </h3>
-
-                </div>
-
-                <div class="simulation-baseline">
-                    <div>
-                        <span>Station baseline</span>
-                        <strong id="simulationBaselineStation">Maitri Research Station</strong>
-                    </div>
-                    <div>
-                        <span>Observed temperature</span>
-                        <strong id="simulationBaselineTemperature">-- °C</strong>
-                    </div>
-                    <div>
-                        <span>Observed wind</span>
-                        <strong id="simulationBaselineWind">-- m/s</strong>
-                    </div>
-                    <div>
-                        <span>Forecast basis</span>
-                        <strong id="simulationBaselineSource">Waiting for weather</strong>
-                    </div>
-                </div>
-
-                <div class="simulation-basis">
-
-                    <span id="simulationBasis">
-
-                        Environmental conditions vary by date and affect
-                        station energy, fuel, logistics and operational risk.
-
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <button
-                class="run-button"
-                id="runSimulation"
-            >
-
-                Run Simulation
-
-            </button>
-
-
-            <div class="side-section">
-
-                <div class="section-heading">
-
-                    <h3>
-                        Simulation Results
+                        Energy Flow
                     </h3>
 
                 </div>
 
 
-                <div class="impact-grid">
+                <div class="energy-flow">
 
-
-                    <div class="impact-card">
-
-                        <span>
-                            Operational Risk
-                        </span>
-
-                        <strong id="simulationResultRisk">
-                            --
-                        </strong>
-
-                    </div>
-
-
-                    <div class="impact-card">
+                    <div class="energy-flow-stage">
 
                         <span>
-                            Peak Risk
+                            Sources
                         </span>
 
-                        <strong id="simulationPeakRisk">
-                            --
+                        <strong id="energyFlowSources">
+                            -- kW
                         </strong>
+
+                        <small>
+                            Solar · Wind · Diesel
+                        </small>
 
                     </div>
 
+                    <div class="energy-flow-arrow">
+                        →
+                    </div>
 
-                    <div class="impact-card">
+                    <div class="energy-flow-stage">
 
                         <span>
-                            Energy Demand
+                            Storage
                         </span>
 
-                        <strong id="simulationEnergyDemand">
-                            --
+                        <strong id="energyFlowStorage">
+                            -- %
                         </strong>
+
+                        <small id="energyFlowStorageNote">
+                            Storage holding
+                        </small>
 
                     </div>
 
+                    <div class="energy-flow-arrow">
+                        →
+                    </div>
 
-                    <div class="impact-card">
+                    <div class="energy-flow-stage">
 
                         <span>
-                            Fuel Used
+                            Station Load
                         </span>
 
-                        <strong id="simulationFuelUse">
-                            --
+                        <strong id="energyFlowLoad">
+                            -- kW
                         </strong>
 
-                    </div>
+                        <small>
+                            Current consumption
+                        </small>
 
-
-                    <div class="impact-card">
-
-                        <span>
-                            Fuel Remaining
-                        </span>
-
-                        <strong id="simulationFuelRemaining">
-                            --
-                        </strong>
-
-                    </div>
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            Resupply
-                        </span>
-
-                        <strong id="simulationResupply">
-                            --
-                        </strong>
-
-                    </div>
-
-                    <div class="impact-card">
-                        <span>Average Risk</span>
-                        <strong id="simulationAverageRisk">--</strong>
-                    </div>
-
-                    <div class="impact-card">
-                        <span>Extreme Weather Days</span>
-                        <strong id="simulationExtremeDays">--</strong>
-                    </div>
-
-                    <div class="impact-card">
-                        <span>Resource Risk</span>
-                        <strong id="simulationResourceRisk">--</strong>
-                    </div>
-
-                    <div class="impact-card">
-                        <span>Resource Alert</span>
-                        <strong id="simulationResourceAlert">--</strong>
                     </div>
 
                 </div>
 
             </div>
+
+
 
 
             <div class="side-section">
@@ -1004,109 +681,14 @@
                 <div class="section-heading">
 
                     <h3>
-                        Simulation Summary
-                    </h3>
-
-                </div>
-
-
-                <div class="selected-layer">
-
-                    <strong id="simulationSummaryTitle">
-                        No simulation run
-                    </strong>
-
-                    <p id="simulationLogisticsImpact">
-                        Select a date range and run the simulation.
-                    </p>
-
-                </div>
-
-            </div>
-
-            <div class="side-section early-warning-section">
-                <div class="section-heading">
-                    <h3>Early Warning</h3>
-                    <span id="earlyWarningStation">MAITRI</span>
-                </div>
-                <div id="earlyWarningSummary" class="early-warning-summary normal">
-                    <strong id="earlyWarningLevel">UNAVAILABLE</strong>
-                    <span id="earlyWarningHeadline">Waiting for station weather data.</span>
-                </div>
-                <div class="early-warning-conditions">
-                    <span>Temperature <b id="earlyWarningTemperature">--</b></span>
-                    <span>Wind <b id="earlyWarningWind">--</b></span>
-                    <span>Direction <b id="earlyWarningDirection">Data unavailable</b></span>
-                    <span>Pressure <b id="earlyWarningPressure">--</b></span>
-                    <span>Snow / precipitation <b id="earlyWarningSnow">Data unavailable</b></span>
-                    <span>Visibility / blizzard <b id="earlyWarningVisibility">Data unavailable</b></span>
-                </div>
-                <div class="early-warning-block">
-                    <strong>Triggers</strong>
-                    <ul id="earlyWarningTriggers"><li>Data unavailable</li></ul>
-                </div>
-                <div class="early-warning-block">
-                    <strong>Recommended action</strong>
-                    <p id="earlyWarningAction">Wait for the next station observation.</p>
-                </div>
-                <div class="early-warning-block">
-                    <strong>Warning timeline</strong>
-                    <div id="earlyWarningTimeline" class="early-warning-timeline">
-                        <span><b>Now</b><em>--</em></span>
-                        <span><b>Next few hours</b><em>--</em></span>
-                        <span><b>Next 24 hours</b><em>--</em></span>
-                    </div>
-                </div>
-                <small class="early-warning-source">Live weather and forecast-based assessment. No physical sensors implied.</small>
-            </div>
-
-        </div>
-
-
-
-        <!-- =====================================================
-             INFRASTRUCTURE PANEL
-        ====================================================== -->
-
-        <div
-            class="panel-content hidden"
-            id="infrastructurePanel"
-        >
-
-            <div class="side-header">
-
-                <div>
-
-                    <h2>
-                        Infrastructure
-                    </h2>
-
-                    <p>
-                        Station infrastructure planning
-                    </p>
-
-                </div>
-
-                <button class="close-panel">
-                    ×
-                </button>
-
-            </div>
-
-
-            <div class="side-section">
-
-                <div class="section-heading">
-
-                    <h3>
-                        Add Infrastructure
+                        Add Power Source
                     </h3>
 
                 </div>
 
 
                 <label class="field-label">
-                    Infrastructure
+                    Power source
                 </label>
 
 
@@ -1185,77 +767,7 @@
                 <div class="section-heading">
 
                     <h3>
-                        Infrastructure Impact
-                    </h3>
-
-                </div>
-
-
-                <div class="impact-grid">
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            Capital Cost
-                        </span>
-
-                        <strong id="infraCost">
-                            ₹0
-                        </strong>
-
-                    </div>
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            Energy Production
-                        </span>
-
-                        <strong id="infraEnergy">
-                            0 kWh/day
-                        </strong>
-
-                    </div>
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            Fuel Saved
-                        </span>
-
-                        <strong id="infraFuelSaved">
-                            0 L/day
-                        </strong>
-
-                    </div>
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            CO₂ Reduction
-                        </span>
-
-                        <strong id="infraCO2">
-                            0 kg/day
-                        </strong>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <div class="side-section">
-
-                <div class="section-heading">
-
-                    <h3>
-                        Added Infrastructure
+                        Installed Sources
                     </h3>
 
                 </div>
@@ -1265,129 +777,12 @@
 
                     <div class="empty-infrastructure">
 
-                        No infrastructure added.
+                        No additional power sources added.
 
                     </div>
 
                 </div>
 
-            </div>
-
-
-            <div class="side-section">
-
-                <div class="section-heading">
-
-                    <h3>
-                        Simulation Impact
-                    </h3>
-
-                </div>
-
-
-                <div class="impact-grid">
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            Capital Cost
-                        </span>
-
-                        <strong id="simulationInfraCost">
-                            ₹0
-                        </strong>
-
-                    </div>
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            Energy Generated
-                        </span>
-
-                        <strong id="simulationInfraEnergy">
-                            0 kWh/day
-                        </strong>
-
-                    </div>
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            Fuel Saved
-                        </span>
-
-                        <strong id="simulationInfraFuelSaved">
-                            0 L/day
-                        </strong>
-
-                    </div>
-
-
-                    <div class="impact-card">
-
-                        <span>
-                            CO₂ Reduction
-                        </span>
-
-                        <strong id="simulationInfraCO2">
-                            0 kg/day
-                        </strong>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <div class="side-section">
-
-                <div class="section-heading">
-
-                    <h3>
-                        Station Infrastructure
-                    </h3>
-
-                </div>
-
-
-                <div
-                    id="infrastructureListSecondary"
-                    class="empty-infrastructure"
-                >
-
-                    Infrastructure inventory is shown above.
-
-                </div>
-
-            </div>
-
-            <div class="side-section infrastructure-health-section">
-                <div class="section-heading">
-                    <h3>Infrastructure Health</h3>
-                    <button id="refreshInfrastructureHealth" class="health-refresh" type="button">Refresh Assessment</button>
-                </div>
-                <div class="health-summary">
-                    <div>
-                        <span id="infrastructureHealthStation">MAITRI</span>
-                        <strong id="infrastructureHealthScore">--</strong>
-                    </div>
-                    <b id="infrastructureHealthStatus" class="health-summary-status">UNAVAILABLE</b>
-                </div>
-                <div class="health-counts">
-                    <span>Healthy <b id="infrastructureHealthyCount">0</b></span>
-                    <span>Warning <b id="infrastructureWarningCount">0</b></span>
-                    <span>Critical <b id="infrastructureCriticalCount">0</b></span>
-                </div>
-                <p class="health-meta">Last assessment: <span id="infrastructureHealthChecked">--</span></p>
-                <div id="infrastructureHealthAlerts" class="health-alerts">No infrastructure assets added to this station yet.</div>
-                <div class="health-subheading">Monitored assets</div>
-                <div id="infrastructureHealthCards"></div>
-                <p class="health-source">Weather Source: NCPOR station observation<br>Assessment: Weather-Based Infrastructure Health Assessment</p>
             </div>
 
         </div>
@@ -1623,6 +1018,50 @@
 
     </aside>
 
+    <!-- =====================================================
+             ANTARCTICA 3D PANEL
+         ====================================================== -->
+
+        <div
+            class="panel-content hidden"
+            id="antarctica3dPanel"
+        >
+
+            <div class="side-header">
+
+                <div>
+
+                    <h2>
+                        Antarctica 3D
+                    </h2>
+
+                    <p id="antarctica3dStatus">
+                        Loading 3D scene…
+                    </p>
+
+                </div>
+
+                <button
+                    class="close-panel"
+                    id="closeAntarctica3dPanel"
+                >
+                    ×
+                </button>
+
+            </div>
+
+            <div class="antarctica3d-frame">
+
+                <iframe
+                    id="antarctica3dIframe"
+                    src="3dantarctica.html"
+                    title="Antarctica 3D Scene"
+                    allow="camera; microphone"
+                ></iframe>
+
+            </div>
+
+        </div>
 
 
     <!-- =========================================================
@@ -1634,51 +1073,84 @@
         <div id="windy"></div>
         <div id="map"></div>
 
-        <div id="infrastructure3D">
-            <div class="infra3d-title">
-                <strong>Maitri Station Digital Twin</strong>
-                <span>Infrastructure condition model</span>
+                <div id="energy3D">
+
+            <div class="energy3d-title">
+
+                <strong>
+                    Maitri Station Energy Model
+                </strong>
+
+                <span>
+                    Generation → storage → station load
+                </span>
+
             </div>
 
-            <div class="infra3d-legend">
-                <div><i class="normal"></i> Normal</div>
-                <div><i class="warning"></i> Warning</div>
-                <div><i class="critical"></i> Critical</div>
+
+            <div class="energy3d-legend">
+
+                <div><i class="solar"></i> Solar</div>
+
+                <div><i class="wind"></i> Wind</div>
+
+                <div><i class="diesel"></i> Generator</div>
+
+                <div><i class="battery"></i> Storage</div>
+
             </div>
 
-            <div class="infra3d-stress-panel">
-                <div class="infra3d-stress-heading">
-                    <strong>Infrastructure Stress Test</strong>
-                    <span>Weather and simulation-based assessment</span>
+
+            <div class="energy3d-panel">
+
+                <div class="energy3d-panel-heading">
+
+                    <strong>
+                        Power Source Detail
+                    </strong>
+
+                    <span>
+                        Click a source in the model
+                    </span>
+
                 </div>
-                <label for="infrastructureStressScenario">Scenario</label>
-                <select id="infrastructureStressScenario">
-                    <option value="weather">Current Weather</option>
-                    <option value="storm">Severe Storm</option>
-                    <option value="blizzard">Blizzard / Heavy Snow</option>
-                    <option value="power">Power Failure</option>
-                    <option value="fuel">Fuel Shortage</option>
-                    <option value="water">Water System Failure</option>
-                    <option value="combined">Combined Emergency</option>
-                </select>
-                <label for="infrastructureStressDuration">Duration</label>
-                <select id="infrastructureStressDuration">
-                    <option value="24">24 hours</option>
-                    <option value="72">72 hours</option>
-                    <option value="168">7 days</option>
-                </select>
-                <div class="infra3d-stress-actions">
-                    <button id="runInfrastructureStressTest" type="button">Run Damage Simulation</button>
-                    <button id="resetInfrastructureStressTest" type="button">Reset</button>
+
+
+                <div class="energy3d-source">
+
+                    <strong id="energy3dSourceName">
+                        No source selected
+                    </strong>
+
+                    <span id="energy3dSourceGeneration">
+                        -- kW
+                    </span>
+
+                    <span id="energy3dSourceShare">
+                        Contribution -- %
+                    </span>
+
+                    <b id="energy3dSourceStatus" class="energy3d-source-status">
+                        --
+                    </b>
+
                 </div>
-                <p id="infrastructureStressStatus">Current weather assessment</p>
+
+
+                <p id="energy3dFlowSummary">
+                    Solar, wind and backup power feed the station load.
+                </p>
+
             </div>
 
-            <div id="infra3d-tooltip"></div>
 
-            <div class="infra3d-help">
-                Drag to rotate · Scroll to zoom · Click a structure to inspect
+            <div id="energy3d-tooltip"></div>
+
+
+            <div class="energy3d-help">
+                Drag to rotate · Scroll to zoom · Click a power source to inspect
             </div>
+
         </div>
 
         <div class="map-overlay top-left">
@@ -1697,11 +1169,6 @@
 
         </div>
 
-        <div class="map-overlay simulation-map-card hidden" id="simulationMapCard">
-            <span>Simulation Projection</span>
-            <strong id="mapSimulationRisk">No simulation run</strong>
-            <small id="mapSimulationDetails">Run a simulation to project station operations on the map.</small>
-        </div>
 
         <div class="map-overlay top-right">
 
@@ -1816,39 +1283,6 @@
                 </div>
             </div>
 
-            <div id="simulationVisualization" class="visualization-content hidden">
-                <div class="visualization-header">
-                    <strong>Simulation Analysis</strong>
-                    <span id="visualizationPeriod">No simulation run</span>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Operational Risk</span>
-                    <strong id="visualRisk">--</strong>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Energy Demand</span>
-                    <canvas id="simulationEnergyChart"></canvas>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Fuel Consumption</span>
-                    <canvas id="simulationFuelChart"></canvas>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Daily Risk</span>
-                    <canvas id="simulationRiskChart"></canvas>
-                </div>
-
-                <div class="visualization-card">
-                    <span>Simulation Summary</span>
-                    <p id="visualSimulationSummary">
-                        Run a simulation to view the projected station conditions.
-                    </p>
-                </div>
-            </div>
 
             <div id="logisticsVisualization" class="visualization-content hidden">
                 <div class="visualization-header">
@@ -1888,62 +1322,185 @@
                 </div>
             </div>
 
-            <div id="infrastructureVisualization" class="visualization-content hidden">
+            <div id="energyVisualization" class="visualization-content hidden">
+
                 <div class="visualization-header">
-                    <strong>Infrastructure Health Overview</strong>
-                    <span>Weather-based assessment</span>
+
+                    <strong>
+                        Energy Condition Simulation
+                    </strong>
+
+                    <span id="energySimStation">
+                        Test weather impact on station power
+                    </span>
+
                 </div>
 
-                <div class="visualization-card infrastructure-health-overview">
-                    <span>Infrastructure Health</span>
-                    <strong><span id="visualInfrastructureHealth">--</span> - <span id="visualInfrastructureStatus">UNAVAILABLE</span></strong>
-                    <p>Active Alerts: <span id="visualInfrastructureAlerts">0</span></p>
-                    <p>Highest Risk: <span id="visualInfrastructureHighestRisk">None</span></p>
-                    <p id="visualInfrastructureEnvironment">Weather data unavailable</p>
+
+                <div class="visualization-card energy-sim-card">
+
+                    <span>
+                        Scenario
+                    </span>
+
+                    <select id="energyScenario" class="full-select energy-sim-select">
+                        <option value="normal">Normal Conditions</option>
+                        <option value="lowSun">Low Sunlight</option>
+                        <option value="highWind">High Winds</option>
+                        <option value="heavySnow">Heavy Snowfall</option>
+                        <option value="extremeCold">Extreme Cold</option>
+                        <option value="severeStorm">Severe Storm</option>
+                        <option value="combined">Combined Extreme Conditions</option>
+                    </select>
+
+                    <div id="energySimConditions" class="energy-sim-conditions">
+                        <div><span>Temperature</span><b id="energySimTemp">--</b></div>
+                        <div><span>Wind Speed</span><b id="energySimWind">--</b></div>
+                        <div><span>Solar Availability</span><b id="energySimSolar">--</b></div>
+                        <div><span>Snowfall</span><b id="energySimSnow">--</b></div>
+                        <div><span>Storm Severity</span><b id="energySimStorm">--</b></div>
+                    </div>
+
+                    <button id="runEnergySimulation" class="run-simulation-btn" type="button">
+                        ▶ Run Simulation
+                    </button>
+                    <button id="energySimReset" class="reset-simulation-btn" type="button">
+                        ↻ Reset Simulation
+                    </button>
+
                 </div>
 
-                <div class="visualization-card">
-                    <span>Installed Asset Health</span>
-                    <div id="visualInfrastructureBreakdown" class="visual-health-breakdown"><p>No installed infrastructure assets.</p></div>
-                </div>
 
-                <div class="visualization-card selected-infrastructure-card">
-                    <span>Selected Asset</span>
-                    <strong id="visualInfrastructureSelected">No asset selected</strong>
-                    <b id="visualInfrastructureSelectedStatus">--</b>
-                    <p id="visualInfrastructureSelectedRisk">Select an installed asset to inspect its assessed risk.</p>
-                    <p id="visualInfrastructureSelectedAction">Recommended action will appear here.</p>
-                </div>
+                <div
+                    id="energySimStateCard"
+                    class="visualization-card energy-state-card"
+                >
 
-                <div class="visualization-card">
-                    <span>Capital Cost</span>
-                    <strong id="visualInfraCost">₹0</strong>
-                </div>
+                    <span>
+                        Overall Energy Status
+                    </span>
 
-                <div class="visualization-card">
-                    <span>Energy Generated</span>
-                    <strong id="visualInfraEnergy">0 kWh/day</strong>
-                </div>
+                    <strong id="energySimStateLabel">
+                        BALANCED
+                    </strong>
 
-                <div class="visualization-card">
-                    <span>Fuel Saved</span>
-                    <strong id="visualInfraFuel">0 L/day</strong>
-                </div>
-
-                <div class="visualization-card">
-                    <span>CO₂ Reduction</span>
-                    <strong id="visualInfraCO2">0 kg/day</strong>
-                </div>
-
-                <div class="visualization-card">
-                    <strong>Infrastructure Scenario</strong>
-                    <p id="visualInfraSummary">
-                        Add infrastructure from the planning panel to evaluate its effect.
+                    <p id="energySimStateDetail">
+                        Run a scenario to assess station power.
                     </p>
+
                 </div>
+
+
+                <div id="energySimWarnings" class="energy-sim-warnings"></div>
+
+
+                <div class="visualization-card">
+
+                    <span>
+                        Total Generation
+                    </span>
+
+                    <strong id="energySimGeneration">
+                        -- kW
+                    </strong>
+
+                    <small class="energy-chart-note" id="energySimGenerationNote">
+                        Solar + wind + backup
+                    </small>
+
+                </div>
+
+
+                <div class="visualization-card">
+
+                    <span>
+                        Consumption
+                    </span>
+
+                    <strong id="energySimConsumption">
+                        -- kW
+                    </strong>
+
+                </div>
+
+
+                <div class="visualization-card">
+
+                    <span>
+                        Battery Status
+                    </span>
+
+                    <strong id="energySimStorage">
+                        -- %
+                    </strong>
+
+                    <div class="energy-meter">
+                        <i id="energySimStorageBar"></i>
+                    </div>
+
+                    <small class="energy-chart-note" id="energySimBatteryNote">
+                        Storage holding
+                    </small>
+
+                </div>
+
+
+                <div class="visualization-card">
+
+                    <span>
+                        Power Balance
+                    </span>
+
+                    <strong id="energySimBalance">
+                        -- kW
+                    </strong>
+
+                </div>
+
+
+                <div class="visualization-card">
+
+                    <span>
+                        Renewable Energy
+                    </span>
+
+                    <strong id="energySimRenewable">
+                        -- %
+                    </strong>
+
+                </div>
+
+
+                <div class="visualization-card">
+
+                    <span>
+                        Generator Status
+                    </span>
+
+                    <strong id="energySimBackup">
+                        --
+                    </strong>
+
+                </div>
+
+
+                <div class="visualization-card">
+
+                    <span>
+                        Generation vs Consumption
+                    </span>
+
+                    <small class="energy-chart-note">
+                        Simulated output against station load
+                    </small>
+
+                    <canvas id="energySimChart"></canvas>
+
+                </div>
+
             </div>
 
-        </aside>
+                </aside>
 
     </section>
 

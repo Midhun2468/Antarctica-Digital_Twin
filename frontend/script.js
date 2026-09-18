@@ -16,21 +16,27 @@ const stations = {
 let currentStation = "maitri";
 let map;
 let stationMarker;
-let simulationMapOverlay;
 let openMeteoForecastLayer;
 let earlyWarningMapLayer = null;
 let weatherArea;
 let weatherChart;
-let simulationRunning = false;
 
-let latestSimulation = null;
 let latestWeather = null;
 let stationInfrastructure = [];
 const infrastructureStorageKey = "antarcticStationInfrastructure";
 
-let simulationEnergyChart = null;
-let simulationFuelChart = null;
-let simulationRiskChart = null;
+// Station logistics reserves used by the logistics projection. These values
+// used to be read from the simulation planning inputs, which were removed
+// together with the simulation tab, so they are now station constants.
+const stationLogisticsBaseline = {
+    personnel: 45,
+    fuelStock: 10000,
+    dailyFuelUse: 350,
+    foodStock: 3000,
+    waterStock: 6000,
+    medicalStock: 500
+};
+
 let windyAPI = null;
 let windyInitialized = false;
 let windyInitializing = false;
@@ -39,23 +45,88 @@ let WINDY_API_KEY = "";
 let selectedEnvironmentLayer = "temperature";
 let windyEmbedActive = false;
 
-let infrastructure3DScene = null;
-let infrastructure3DCamera = null;
-let infrastructure3DRenderer = null;
-let infrastructure3DControls = null;
-let infrastructure3DRaycaster = null;
-let infrastructure3DMouse = null;
-let infrastructure3DGroup = null;
-let infrastructure3DInitialized = false;
-let infrastructure3DObjects = [];
-let infrastructure3DHovered = null;
+let energy3DScene = null;
+let energy3DCamera = null;
+let energy3DRenderer = null;
+let energy3DControls = null;
+let energy3DRaycaster = null;
+let energy3DMouse = null;
+let energy3DGroup = null;
+let energy3DInitialized = false;
+let energy3DObjects = [];
+let energy3DHovered = null;
+let energy3DState = null;
+let energy3DSelectedSource = null;
+let energy3DFlows = [];
+let energy3DWindRotors = [];
+let energy3DClock = null;
 
-let infrastructureDamageSimulation = {
-    active: false,
-    scenario: "weather",
-    duration: 24,
-    results: {}
+let energyBalanceChart = null;
+
+// Baseline energy constants are declared with the other top-level state so
+// the synchronous startup calls below (updateStationInformation -> loadWeather
+// -> updateEnergyDashboard) never read them before initialization.
+const energySourceDefinitions = {
+    solar: {
+        id: "solar",
+        name: "Solar Power",
+        icon: "☀",
+        unit: "kW",
+        color: 0xf0b64b
+    },
+    wind: {
+        id: "wind",
+        name: "Wind Power",
+        icon: "≋",
+        unit: "kW",
+        color: 0x63b8d8
+    },
+    diesel: {
+        id: "diesel",
+        name: "Diesel Generator",
+        icon: "⚙",
+        unit: "kW",
+        color: 0xd98f4a
+    },
+    battery: {
+        id: "battery",
+        name: "Battery Storage",
+        icon: "▮",
+        unit: "kW",
+        color: 0x6fa87a
+    }
 };
+
+// Capacity that the digital twin always models, in addition to the
+// power sources installed from the energy panel.
+const stationEnergyBaseline = {
+    solar: 46,
+    wind: 38,
+    diesel: 60,
+    battery: 260,
+    load: 52
+};
+
+// Energy condition simulation state is declared with the other top-level
+// state because the synchronous startup path reaches it:
+//   updateStationInformation -> loadWeather -> updateEnergyDashboard
+//     -> renderEnergyAnalysis -> updateEnergyScenarioConditions
+//     -> updateEnergyChart -> updateEnergyScenarioChart
+// If these were declared further down the file they would still be in the
+// temporal dead zone when that path runs, throwing a ReferenceError that
+// silently aborts the initial weather load.
+const energyScenarioDefinitions = {
+    normal: { label: "Normal Conditions", temperature: null, wind: null, solarFactor: 1, windFactor: 1, loadExtraKw: 0, snowfall: "None", storm: "Calm" },
+    lowSun: { label: "Low Sunlight", temperature: -2, wind: null, solarFactor: 0.25, windFactor: 1, loadExtraKw: 1.5, snowfall: "Light", storm: "Calm" },
+    highWind: { label: "High Winds", temperature: -3, wind: 17, solarFactor: 0.85, windFactor: 1, loadExtraKw: 3, snowfall: "Light", storm: "Moderate" },
+    heavySnow: { label: "Heavy Snowfall", temperature: -4, wind: null, solarFactor: 0.35, windFactor: 0.9, loadExtraKw: 3.5, snowfall: "Heavy", storm: "Moderate" },
+    extremeCold: { label: "Extreme Cold", temperature: -42, wind: null, solarFactor: 0.9, windFactor: 1, loadExtraKw: 9, snowfall: "Light", storm: "Calm" },
+    severeStorm: { label: "Severe Storm", temperature: -8, wind: 27, solarFactor: 0.15, windFactor: 1, loadExtraKw: 8, snowfall: "Heavy", storm: "Severe" },
+    combined: { label: "Combined Extreme Conditions", temperature: -45, wind: 28, solarFactor: 0.1, windFactor: 1, loadExtraKw: 14, snowfall: "Heavy", storm: "Extreme" }
+};
+
+let hasRunEnergySimulation = false;
+let lastEnergySimulation = null;
 
 const stationSelect = document.getElementById("station");
 const API_BASE_URL = (window.API_BASE_URL || "").replace(/\/+$/, "");
@@ -253,56 +324,6 @@ function updateOpenMeteoMapLayer(weather) {
     );
 }
 
-function clearSimulationMapOverlay() {
-    if (simulationMapOverlay && map) {
-        map.removeLayer(simulationMapOverlay);
-    }
-
-    simulationMapOverlay = null;
-    document.getElementById("simulationMapCard")?.classList.add("hidden");
-}
-
-function updateSimulationMapOverlay() {
-    if (!map || !latestSimulation) {
-        return;
-    }
-
-    clearSimulationMapOverlay();
-
-    const position = getCurrentStationPosition();
-    const risk = Math.round(latestSimulation.peakRisk);
-    const riskColor = risk >= 70 ? "#b64f4f" : risk >= 40 ? "#c58a4a" : "#4c8a70";
-    const transport = Math.round(latestSimulation.minimumTransport);
-
-    simulationMapOverlay = L.layerGroup([
-        L.circle(position, {
-            radius: 18000 + risk * 900,
-            color: riskColor,
-            fillColor: riskColor,
-            fillOpacity: 0.18,
-            weight: 2
-        }),
-        L.circleMarker(position, {
-            radius: 10,
-            color: riskColor,
-            fillColor: "#ffffff",
-            fillOpacity: 1,
-            weight: 3
-        })
-    ]).addTo(map);
-
-    const riskElement = document.getElementById("mapSimulationRisk");
-    const detailsElement = document.getElementById("mapSimulationDetails");
-    if (riskElement) {
-        riskElement.textContent = `${riskLabel(risk)} risk - ${risk}/100`;
-    }
-    if (detailsElement) {
-        detailsElement.textContent =
-            `${latestSimulation.days}-day projection | Transport ${transport}% | ` +
-            `Fuel remaining ${Math.round(latestSimulation.fuelRemaining).toLocaleString("en-IN")} L`;
-    }
-    document.getElementById("simulationMapCard")?.classList.remove("hidden");
-}
 
 function updateStationInformation() {
     const data = stations[currentStation];
@@ -320,13 +341,6 @@ function updateStationInformation() {
     mapLatitude.textContent = lat;
     mapLongitude.textContent = lon;
 
-    updateSimulationBaseline();
-
-    if (latestSimulation?.station && latestSimulation.station !== currentStation) {
-        latestSimulation = null;
-        clearSimulationMapOverlay();
-    }
-
     updateMap();
     updateWindyStation();
     loadWeather();
@@ -342,7 +356,7 @@ async function loadWeather() {
     livePressure.textContent = "--";
     liveHumidity.textContent = "--";
     weatherTimestamp.textContent = "Loading...";
-    updateInfrastructureHealthMonitor();
+    updateEnergyDashboard();
 
     if (mapDataStatus) {
         mapDataStatus.textContent = "Connecting to weather data";
@@ -371,13 +385,16 @@ async function loadWeather() {
             weather.pressure,
             weather.humidity
         ];
+        // Check for null/undefined values first (Number(null) === 0 which is finite!)
+        if (requiredWeatherValues.some(value => value === null || value === undefined)) {
+            throw new Error("Weather API returned null or undefined values");
+        }
         if (!requiredWeatherValues.every(value => Number.isFinite(Number(value)))) {
             throw new Error("Weather API returned incomplete or non-numeric weather data");
         }
         latestWeather = weather;
 
         updateWeatherVisualization(weather);
-        updateSimulationBaseline();
 
         liveTemperature.textContent =
             formatNumber(weather.temperature);
@@ -395,15 +412,16 @@ async function loadWeather() {
             weather.timestamp || "--";
 
         if (mapDataStatus) {
-            mapDataStatus.textContent = weather.source === "NCPOR"
-                ? "NCPOR observation + Open-Meteo forecast overlay"
-                : "NCPOR unavailable - fallback/model data";
+            mapDataStatus.textContent = weather.source === "Open-Meteo"
+                ? "Open-Meteo real-time observation"
+                : weather.source === "Fallback/model data"
+                    ? "Open-Meteo unavailable - fallback/model data"
+                    : "Weather source unavailable - fallback/model data";
         }
 
         updateWeatherChart(weather.hourly, weather);
         updateOpenMeteoMapLayer(weather);
-        updateSimulationBaseline();
-        updateInfrastructureHealthMonitor();
+        updateEnergyDashboard();
         updateEarlyWarningSystem();
 
         updateLogistics();
@@ -422,8 +440,7 @@ async function loadWeather() {
         clearOpenMeteoForecastLayer();
         updateWeatherVisualization(null);
         updateWeatherChart(null);
-        updateSimulationBaseline();
-        updateInfrastructureHealthMonitor();
+        updateEnergyDashboard();
         updateEarlyWarningSystem();
         liveTemperature.textContent = "--";
         liveWind.textContent = "--";
@@ -451,34 +468,19 @@ function formatNumber(value) {
     return number.toFixed(1);
 }
 
-function updateSimulationBaseline() {
-    const station = stations[currentStation];
-    const values = {
-        simulationBaselineStation: station.name,
-        simulationBaselineTemperature: `${formatNumber(latestWeather?.temperature)} °C`,
-        simulationBaselineWind: `${formatNumber(latestWeather?.wind_speed)} m/s`,
-        simulationBaselineSource: latestWeather?.hourly_source ||
-            (latestWeather?.source === "NCPOR" ? "NCPOR observation" : "Waiting for weather")
-    };
-
-    Object.entries(values).forEach(([id, value]) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
-    });
-}
 
 function updateWeatherVisualization(weather) {
     const data = weather || {};
     const station = stations[currentStation];
     const source = data.source || "Weather data unavailable";
-    const isObservation = source === "NCPOR";
+    const isObservation = source === "Open-Meteo";
     const temperature = Number(data.temperature);
     const wind = Number(data.wind_speed);
     const pressure = Number(data.pressure);
     const humidity = Number(data.humidity);
     const values = {
         visualWeatherStation: station.name,
-        visualWeatherStatus: isObservation ? "NCPOR observation" : source,
+        visualWeatherStatus: isObservation ? "Open-Meteo observation" : source,
         visualWeatherTimestamp: data.timestamp || "No observation timestamp available",
         visualWeatherTemperature: `${formatNumber(temperature)} °C`,
         visualWeatherWind: `${formatNumber(wind)} m/s`,
@@ -657,18 +659,13 @@ function updateVisualizationPanel(panelId) {
             ?.classList.remove("hidden");
     }
 
-    if (panelId === "simulationPanel") {
-        document.getElementById("simulationVisualization")
-            ?.classList.remove("hidden");
-    }
-
     if (panelId === "logisticsPanel") {
         document.getElementById("logisticsVisualization")
             ?.classList.remove("hidden");
     }
 
-    if (panelId === "infrastructurePanel") {
-        document.getElementById("infrastructureVisualization")
+    if (panelId === "energyPanel") {
+        document.getElementById("energyVisualization")
             ?.classList.remove("hidden");
     }
 
@@ -779,14 +776,14 @@ iconButtons.forEach(button => {
             panel.classList.remove("hidden");
             button.classList.add("active");
 
-            if (panelId === "infrastructurePanel") {
+            if (panelId === "energyPanel") {
                 clearEarlyWarningMapLayer();
                 setEnvironmentMapVisible(false);
-                setInfrastructure3DVisible(true);
+                setEnergy3DVisible(true);
             } else {
                 clearEarlyWarningMapLayer();
                 setEnvironmentMapVisible(false);
-                setInfrastructure3DVisible(false);
+                setEnergy3DVisible(false);
             }
 
             document.querySelector(".map-area")?.classList.toggle(
@@ -860,297 +857,12 @@ function applyMapLayer(layer) {
 
 }
 
-let simulationMode = "emergency";
 
-const simulationModes =
-    document.querySelectorAll(".simulation-mode");
-
-const simulationInputTitle =
-    document.getElementById("simulationInputTitle");
-
-const simulationInputDescription =
-    document.getElementById("simulationInputDescription");
-
-const simulationBasis =
-    document.getElementById("simulationBasis");
-
-simulationModes.forEach(button => {
-    button.addEventListener("click", () => {
-
-        simulationModes.forEach(item => {
-            item.classList.remove("active");
-        });
-
-        button.classList.add("active");
-
-        simulationMode = button.dataset.mode;
-
-        updateSimulationMode();
-    });
-});
-
-function updateSimulationMode() {
-
-    if (!simulationInputTitle ||
-        !simulationInputDescription ||
-        !simulationBasis) {
-        return;
-    }
-
-    document.querySelectorAll(".scenario-field").forEach(field => {
-        field.classList.add("hidden");
-    });
-
-    document.querySelectorAll(`.${simulationMode}-field`).forEach(field => {
-        field.classList.remove("hidden");
-    });
-
-    if (simulationMode === "emergency") {
-
-        simulationInputTitle.textContent =
-            "Emergency Response Inputs";
-
-        simulationInputDescription.textContent =
-            "Assess station response to weather and emergency conditions.";
-
-        simulationBasis.textContent =
-            "Daily environmental conditions affect heating demand, power generation, fuel consumption, transport availability and operational risk.";
-    }
-
-    else if (simulationMode === "climate") {
-
-        simulationInputTitle.textContent =
-            "Climate Risk Assessment";
-
-        simulationInputDescription.textContent =
-            "Measure how environmental risk changes across the selected period.";
-
-        simulationBasis.textContent =
-            "The simulation identifies recurring high-risk conditions and their effect on station energy and logistics.";
-    }
-
-    else if (simulationMode === "infrastructure") {
-
-        simulationInputTitle.textContent =
-            "Infrastructure Planning";
-
-        simulationInputDescription.textContent =
-            "Estimate how planned infrastructure improves energy resilience.";
-
-        simulationBasis.textContent =
-            "Added solar, wind, battery and other infrastructure is included in the station simulation.";
-    }
-}
-
-function getSimulationDays(startDate, endDate) {
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    return Math.max(
-        1,
-        Math.floor(
-            (end - start) /
-            (1000 * 60 * 60 * 24)
-        ) + 1
-    );
-}
-
-function initializeSimulationDates() {
-    const startInput = document.getElementById("startDate");
-    const endInput = document.getElementById("endDate");
-    if (!startInput || !endInput) return;
-
-    const today = new Date();
-    const end = new Date(today);
-    end.setDate(today.getDate() + 29);
-    const toInputDate = date => date.toISOString().split("T")[0];
-
-    startInput.value = toInputDate(today);
-    endInput.value = toInputDate(end);
-}
-
-function getBaseConditions() {
-
-    const temperature =
-        Number.parseFloat(
-            document.getElementById("liveTemperature")?.textContent
-        );
-
-    const wind =
-        Number.parseFloat(
-            document.getElementById("liveWind")?.textContent
-        );
-
-    const pressure =
-        Number.parseFloat(
-            document.getElementById("livePressure")?.textContent
-        );
-
-    const humidity =
-        Number.parseFloat(
-            document.getElementById("liveHumidity")?.textContent
-        );
-
-    return {
-        temperature:
-            Number.isFinite(temperature)
-                ? temperature
-                : -18,
-
-        wind:
-            Number.isFinite(wind)
-                ? wind
-                : 8,
-
-        pressure:
-            Number.isFinite(pressure)
-                ? pressure
-                : 985,
-
-        humidity:
-            Number.isFinite(humidity)
-                ? humidity
-                : 60
-    };
-}
-
-function generateDailyConditions(startDate, days) {
-
-    const base = getBaseConditions();
-    const conditions = [];
-
-    for (let i = 0; i < days; i++) {
-
-        const date = new Date(startDate);
-
-        date.setDate(
-            date.getDate() + i
-        );
-
-        const temperature =
-            base.temperature +
-            Math.sin(i / 9) * 4 +
-            Math.sin(i * 1.7) * 2;
-
-        const wind =
-            Math.max(
-                1,
-                base.wind +
-                Math.sin(i / 4) * 5 +
-                Math.cos(i * 1.3) * 3
-            );
-
-        const coldFactor =
-            Math.max(
-                0,
-                (-temperature - 10) / 30
-            );
-
-        const snowfall =
-            Math.max(
-                0,
-                Math.min(
-                    100,
-                    18 +
-                    Math.max(0, (base.humidity - 50) * 0.35) +
-                    coldFactor * 35 +
-                    Math.sin(i * 1.4) * 20
-                )
-            );
-
-        const visibility =
-            Math.max(
-                15,
-                Math.min(
-                    100,
-                    95 -
-                    snowfall * 0.55
-                )
-            );
-
-        const storm =
-            Math.max(
-                0,
-                Math.min(
-                    100,
-                    (wind - 12) * 5 +
-                    snowfall * 0.35
-                )
-            );
-
-        conditions.push({
-            date:
-                date.toISOString().split("T")[0],
-
-            temperature,
-            wind,
-            snowfall,
-            visibility,
-            storm
-        });
-    }
-
-    return conditions;
-}
-
-function calculateDailyRisk(condition) {
-
-    let score = 0;
-
-    if (condition.temperature <= -35) {
-        score += 25;
-    }
-    else if (condition.temperature <= -25) {
-        score += 15;
-    }
-
-    if (condition.wind >= 25) {
-        score += 25;
-    }
-    else if (condition.wind >= 18) {
-        score += 15;
-    }
-
-    if (condition.snowfall >= 70) {
-        score += 20;
-    }
-    else if (condition.snowfall >= 45) {
-        score += 10;
-    }
-
-    if (condition.visibility <= 30) {
-        score += 20;
-    }
-    else if (condition.visibility <= 50) {
-        score += 10;
-    }
-
-    if (condition.storm >= 70) {
-        score += 30;
-    }
-    else if (condition.storm >= 40) {
-        score += 15;
-    }
-
-    return Math.min(100, score);
-}
-
-function riskLabel(score) {
-
-    if (score >= 70) {
-        return "CRITICAL";
-    }
-
-    if (score >= 40) {
-        return "WARNING";
-    }
-
-    return "NORMAL";
-}
 
 function getInfrastructureSimulationImpact() {
     let renewableEnergy = 0;
+    let solarCapacity = 0;
+    let windCapacity = 0;
     let batteryCapacity = 0;
     let dieselCapacity = 0;
     let fuelStorage = 0;
@@ -1159,6 +871,8 @@ function getInfrastructureSimulationImpact() {
     if (typeof stationInfrastructure === "undefined") {
         return {
             renewableEnergy: 0,
+            solarCapacity: 0,
+            windCapacity: 0,
             batteryCapacity: 0,
             dieselCapacity: 0,
             fuelStorage: 0,
@@ -1169,6 +883,14 @@ function getInfrastructureSimulationImpact() {
     stationInfrastructure.forEach(item => {
         if (item.type === "solar" || item.type === "wind") {
             renewableEnergy += item.energy;
+        }
+
+        if (item.type === "solar") {
+            solarCapacity += item.capacity;
+        }
+
+        if (item.type === "wind") {
+            windCapacity += item.capacity;
         }
 
         if (item.type === "battery") {
@@ -1190,6 +912,8 @@ function getInfrastructureSimulationImpact() {
 
     return {
         renewableEnergy,
+        solarCapacity,
+        windCapacity,
         batteryCapacity,
         dieselCapacity,
         fuelStorage,
@@ -1197,705 +921,12 @@ function getInfrastructureSimulationImpact() {
     };
 }
 
-function runDigitalTwinSimulation() {
-
-    const startDate =
-        document.getElementById("startDate")?.value;
-
-    const endDate =
-        document.getElementById("endDate")?.value;
-
-    if (!startDate || !endDate) {
-        alert("Select a start date and end date.");
-        return;
-    }
-
-    if (startDate > endDate) {
-        alert("End date must be after start date.");
-        return;
-    }
-
-    const days = getSimulationDays(startDate, endDate);
-    if (days > 365) {
-        alert("Select a simulation period of 365 days or less.");
-        return;
-    }
-
-    const personnel =
-        Number(
-            document.getElementById("personnel")?.value || 45
-        );
-
-    const dailyEnergy =
-        Number(
-            document.getElementById("dailyEnergy")?.value || 1200
-        );
-
-    const initialFuel =
-        Number(
-            document.getElementById("fuelStock")?.value || 10000
-        );
-
-    const waterStock =
-        Number(
-            document.getElementById("waterStock")?.value || 6000
-        );
-
-    const foodStock = Number(document.getElementById("foodStock")?.value || 3000);
-    const medicalStock = Number(document.getElementById("medicalStock")?.value || 500);
-
-    const emergencySeverity =
-        document.getElementById("emergencySeverity")?.value || "normal";
-
-    const emergencyFactor = {
-        normal: 0,
-        severe: 12,
-        critical: 25
-    }[emergencySeverity];
-
-    const transportBaseline = Math.max(
-        0,
-        Math.min(100, Number(document.getElementById("transportAvailability")?.value || 85))
-    );
-
-    const temperatureSensitivity = Number(
-        document.getElementById("temperatureSensitivity")?.value || 1
-    );
-
-    const windSensitivity = Number(
-        document.getElementById("windSensitivity")?.value || 1
-    );
-
-    const snowfallSensitivity = simulationMode === "climate"
-        ? Math.max(0, Number(document.getElementById("snowfallSensitivity")?.value || 1))
-        : 1 + Math.max(0, temperatureSensitivity - 1) * 0.25;
-    const stormSensitivity = simulationMode === "climate"
-        ? Math.max(0, Number(document.getElementById("stormSensitivity")?.value || 1))
-        : 1 + Math.max(0, windSensitivity - 1) * 0.25;
-    const baselineRisk = simulationMode === "climate"
-        ? Math.max(0, Number(document.getElementById("baselineRisk")?.value || 0))
-        : 0;
-    const utilization = Math.max(
-        0,
-        Math.min(100, Number(document.getElementById("expectedUtilization")?.value || 80))
-    ) / 100;
-    const projectLifetime = Math.max(
-        1,
-        Number(document.getElementById("projectLifetime")?.value || 20)
-    );
-
-    const dailyConditions =
-        generateDailyConditions(
-            startDate,
-            days
-        );
-
-    const infrastructure =
-        getInfrastructureSimulationImpact();
-
-    const planningType = document.getElementById("planningInfrastructureType")?.value;
-    const planningCapacity = Math.max(0, Number(document.getElementById("planningCapacity")?.value || 0));
-    const planningData = typeof infrastructureData !== "undefined" && planningType
-        ? infrastructureData[planningType]
-        : null;
-    const plannedRenewableEnergy = simulationMode === "infrastructure" && planningData &&
-        (planningType === "solar" || planningType === "wind")
-        ? planningCapacity * planningData.energyPerUnit * utilization
-        : 0;
-    const plannedFuelStorage = simulationMode === "infrastructure" && planningType === "fuel"
-        ? planningCapacity
-        : 0;
-    const plannedBatteryCapacity = simulationMode === "infrastructure" && planningType === "battery"
-        ? planningCapacity
-        : 0;
-    const modeledEnergyRequirement = simulationMode === "infrastructure"
-        ? Math.max(100, Number(document.getElementById("infrastructureEnergyRequirement")?.value || dailyEnergy))
-        : dailyEnergy;
-    const installationCost = simulationMode === "infrastructure"
-        ? Math.max(0, Number(document.getElementById("installationCost")?.value || 0))
-        : 0;
-
-    let fuelRemaining = initialFuel + infrastructure.fuelStorage + plannedFuelStorage;
-    let waterRemaining = waterStock + infrastructure.waterCapacity;
-    let foodRemaining = foodStock;
-    let medicalRemaining = medicalStock;
-    let totalFuelUsed = 0;
-    let totalEnergyDemand = 0;
-    let totalRenewableEnergy = 0;
-    let peakRisk = 0;
-    let highRiskDays = 0;
-    let minimumTransport = 100;
-    let peakResourceRisk = 0;
-    const resourceAlerts = new Set();
-
-    const dailyWaterUse = Math.max(1, personnel * (1.8 + emergencyFactor * 0.02) - infrastructure.waterCapacity * 0.01);
-    const dailyFoodUse = Math.max(1, personnel * 2.2 * (1 + emergencyFactor * 0.01));
-    const dailyMedicalUse = Math.max(0.1, personnel * 0.02 * (1 + emergencyFactor * 0.02));
-
-    const simulationLabels = [];
-    const simulationEnergy = [];
-    const simulationFuel = [];
-    const simulationRisk = [];
-
-    dailyConditions.forEach(condition => {
-
-        let risk =
-            calculateDailyRisk(condition);
-
-        if (simulationMode === "emergency") {
-            risk = Math.min(
-                100,
-                risk + emergencyFactor
-            );
-        }
-
-        if (simulationMode === "climate") {
-            const coldRisk = condition.temperature <= -25 ? 5 * temperatureSensitivity : 0;
-            const windRisk = condition.wind >= 18 ? 5 * windSensitivity : 0;
-            risk = Math.min(100, risk + coldRisk + windRisk);
-        }
-
-        risk = Math.min(100, risk + emergencyFactor * 0.35 + baselineRisk);
-
-        const heatingFactor =
-            Math.max(
-                0,
-                (-condition.temperature - 10) / 30
-            );
-
-        const energyDemand =
-            modeledEnergyRequirement *
-            (
-                1 +
-                heatingFactor * 0.35 +
-                (simulationMode === "emergency" ? emergencyFactor * 0.006 : 0)
-            );
-
-        totalEnergyDemand +=
-            energyDemand;
-
-        const weatherRenewableFactor =
-            Math.max(
-                0.15,
-                Math.min(
-                    0.85,
-                    0.65 -
-                    condition.snowfall * 0.003 +
-                    condition.wind * 0.004
-                )
-            );
-
-            let renewableEnergy =
-                (infrastructure.renewableEnergy + plannedRenewableEnergy) * weatherRenewableFactor;
-
-            const batterySupport =
-                Math.min((infrastructure.batteryCapacity + plannedBatteryCapacity) / Math.max(1, days), energyDemand * 0.2);
-
-            renewableEnergy += batterySupport;
-
-            renewableEnergy =
-                Math.min(
-                    energyDemand,
-                    renewableEnergy
-                );
-
-            totalRenewableEnergy +=
-                renewableEnergy;
-
-            const dieselEnergy =
-                Math.max(
-                    0,
-                    energyDemand -
-                    renewableEnergy
-                );
-
-            const fuelUsed = dieselEnergy / 10;
-
-        totalFuelUsed +=
-            fuelUsed;
-
-        fuelRemaining =
-            Math.max(
-                0,
-                fuelRemaining -
-                fuelUsed
-            );
-
-        waterRemaining = Math.max(0, waterRemaining - dailyWaterUse);
-        foodRemaining = Math.max(0, foodRemaining - dailyFoodUse);
-        medicalRemaining = Math.max(0, medicalRemaining - dailyMedicalUse);
-
-        let resourceRisk = 0;
-        const resourceDays = {
-            fuel: fuelUsed > 0 ? fuelRemaining / fuelUsed : Infinity,
-            water: waterRemaining / dailyWaterUse,
-            food: foodRemaining / dailyFoodUse,
-            medical: medicalRemaining / dailyMedicalUse
-        };
-
-        Object.entries(resourceDays).forEach(([resource, remainingDays]) => {
-            if (remainingDays <= 2) {
-                resourceRisk += 20;
-                resourceAlerts.add(`${resource} critical`);
-            } else if (remainingDays <= 7) {
-                resourceRisk += 12;
-                resourceAlerts.add(`${resource} low`);
-            } else if (remainingDays <= 14) {
-                resourceRisk += 5;
-            }
-        });
-
-        if (renewableEnergy < energyDemand * 0.35) {
-            resourceRisk += 5;
-            resourceAlerts.add("power reserve low");
-        }
-
-        resourceRisk = Math.min(40, resourceRisk);
-        risk = Math.min(100, risk + resourceRisk);
-        peakResourceRisk = Math.max(peakResourceRisk, resourceRisk);
-
-        peakRisk = Math.max(peakRisk, risk);
-        if (risk >= 40) highRiskDays++;
-
-        simulationLabels.push(condition.date);
-        simulationEnergy.push(Math.round(energyDemand));
-        simulationFuel.push(Math.round(fuelUsed));
-        simulationRisk.push(Math.round(risk));
-
-        let transport =
-            transportBaseline;
-
-        transport -=
-            condition.storm * 0.6 * stormSensitivity;
-
-        transport -=
-            condition.snowfall * 0.25 * snowfallSensitivity;
-
-        transport -= emergencyFactor * 0.35;
-
-        transport -=
-            Math.max(
-                0,
-                condition.wind - 40
-            ) * 0.4;
-
-        transport -=
-            Math.max(
-                0,
-                60 - condition.visibility
-            ) * 0.3;
-
-        transport =
-            Math.max(
-                0,
-                Math.min(100, transport)
-            );
-
-        minimumTransport =
-            Math.min(
-                minimumTransport,
-                transport
-            );
-    });
-
-    const averageEnergy =
-        totalEnergyDemand / days;
-
-    const averageRenewable =
-        totalRenewableEnergy / days;
-
-    const resourceRiskLabel = riskLabel(peakResourceRisk);
-    const resourceAlert = resourceAlerts.size > 0
-        ? Array.from(resourceAlerts).slice(0, 3).join(", ")
-        : "Resources adequate";
-
-    const extremeWeatherDays = dailyConditions.filter(condition =>
-        condition.temperature <= -30 ||
-        condition.wind >= 25 ||
-        condition.storm >= 70
-    ).length;
-
-    let resupply = "NOT REQUIRED";
-
-    const resourceResupplyRequired =
-        fuelRemaining <= 0 ||
-        waterRemaining <= 0 ||
-        foodRemaining <= 0 ||
-        medicalRemaining <= 0;
-
-    if (resourceResupplyRequired) {
-        resupply = "URGENT";
-    }
-    else if (
-        fuelRemaining <
-        (averageEnergy / 10) * 7
-    ) {
-        resupply = "RECOMMENDED";
-    }
-
-    if (
-        simulationMode === "emergency" &&
-        peakRisk >= 70
-    ) {
-        resupply = "URGENT";
-    }
-
-    const risk =
-        riskLabel(peakRisk);
-
-    document.getElementById(
-        "simulationResultRisk"
-    ).textContent = risk;
-
-    document.getElementById(
-        "simulationPeakRisk"
-    ).textContent =
-        `${Math.round(peakRisk)} / 100`;
-
-    document.getElementById(
-        "simulationEnergyDemand"
-    ).textContent =
-        `${Math.round(averageEnergy).toLocaleString("en-IN")} kWh/day`;
-
-    document.getElementById(
-        "simulationFuelUse"
-    ).textContent =
-        `${Math.round(totalFuelUsed).toLocaleString("en-IN")} L`;
-
-    document.getElementById(
-        "simulationFuelRemaining"
-    ).textContent =
-        `${Math.round(fuelRemaining).toLocaleString("en-IN")} L`;
-
-    document.getElementById(
-        "simulationResupply"
-    ).textContent =
-        resupply;
-
-    document.getElementById("simulationAverageRisk").textContent =
-        `${Math.round(simulationRisk.reduce((sum, value) => sum + value, 0) / days)} / 100`;
-
-    document.getElementById("simulationExtremeDays").textContent =
-        `${extremeWeatherDays} days`;
-
-    document.getElementById("simulationResourceRisk").textContent =
-        `${resourceRiskLabel} - ${Math.round(peakResourceRisk)}/40`;
-
-    document.getElementById("simulationResourceAlert").textContent =
-        resourceAlert;
-
-    document.getElementById(
-        "simulationSummaryTitle"
-    ).textContent =
-        `${risk} — ${days}-day simulation`;
-
-    let modeText = "Station response";
-
-    if (simulationMode === "climate") {
-        modeText = "Climate risk assessment";
-    }
-
-    if (simulationMode === "infrastructure") {
-        modeText = "Infrastructure planning";
-    }
-
-    const infrastructureDetail = simulationMode === "infrastructure"
-        ? ` Planned ${planningType || "asset"} capacity: ${planningCapacity.toLocaleString("en-IN")} ` +
-          `with ${utilization * 100}% utilization and ₹${installationCost.toLocaleString("en-IN")} installation cost.`
-        : "";
-
-    document.getElementById(
-        "simulationLogisticsImpact"
-    ).textContent =
-        `${modeText}: ${highRiskDays} high-risk days detected. ` +
-        `Minimum transport availability was ${Math.round(minimumTransport)}%. ` +
-        `Average renewable generation was ${Math.round(averageRenewable).toLocaleString("en-IN")} kWh/day. ` +
-        `Fuel consumption was approximately ${Math.round(totalFuelUsed).toLocaleString("en-IN")} L ` +
-        `for ${personnel} personnel. ` +
-        `Water remaining: ${Math.round(waterRemaining).toLocaleString("en-IN")} L. ` +
-        `Resource status: ${resourceAlert}. ` +
-        infrastructureDetail +
-        `${resourceResupplyRequired ? "Resupply is required before the period ends." : "All modeled reserves last through the period."}`;
-
-    if (mapDataStatus) {
-        mapDataStatus.textContent =
-            `Simulation complete — ${days} days`;
-    }
-
-    updateInfrastructureSimulationImpact(
-        totalEnergyDemand,
-        totalFuelUsed
-    );
-
-    latestSimulation = {
-        station: currentStation,
-        days,
-        initialFuel,
-        projectedFuelStock: initialFuel + infrastructure.fuelStorage + plannedFuelStorage,
-        totalFuelUsed,
-        fuelRemaining,
-        dailyFuelUse: totalFuelUsed / days,
-        peakRisk,
-        highRiskDays,
-        minimumTransport,
-        averageEnergy,
-        averageRisk: simulationRisk.reduce((sum, value) => sum + value, 0) / days,
-        extremeWeatherDays,
-        waterRemaining,
-        foodRemaining,
-        medicalRemaining,
-        peakResourceRisk,
-        resourceAlert,
-        resourceResupplyRequired,
-        plannedInfrastructureType: planningType || null,
-        plannedCapacity: planningCapacity,
-        installationCost,
-        modeledEnergyRequirement,
-        projectLifetime,
-        emergencySeverity
-    };
-
-    updateInfrastructureHealthMonitor();
-    updateSimulationMapOverlay();
-
-    updateSimulationVisualization(
-        simulationLabels,
-        simulationEnergy,
-        simulationFuel,
-        simulationRisk,
-        peakRisk,
-        averageEnergy,
-        totalFuelUsed,
-        highRiskDays
-    );
-
-    updateLogistics();
-}
-
-function updateInfrastructureSimulationImpact(
-    totalEnergyDemand,
-    totalFuelUsed
-) {
-
-    const impactCost =
-        document.querySelectorAll("#infraCost")[1];
-
-    const impactEnergy =
-        document.querySelectorAll("#infraEnergy")[1];
-
-    const impactFuel =
-        document.querySelectorAll("#infraFuelSaved")[1];
-
-    const impactCO2 =
-        document.querySelectorAll("#infraCO2")[1];
-
-    if (!impactCost ||
-        !impactEnergy ||
-        !impactFuel ||
-        !impactCO2) {
-        return;
-    }
-
-    const infrastructure =
-        getInfrastructureSimulationImpact();
-
-    const totalCost =
-        typeof stationInfrastructure !== "undefined"
-            ? stationInfrastructure.reduce(
-                (sum, item) => sum + item.cost,
-                0
-            )
-            : 0;
-
-    const fuelSaved = Math.min(
-        infrastructure.renewableEnergy / 10,
-        totalFuelUsed
-    );
-
-    const co2Reduction =
-        fuelSaved * 2.68;
-
-    impactCost.textContent =
-        "₹" +
-        Math.round(totalCost)
-            .toLocaleString("en-IN");
-
-    impactEnergy.textContent =
-        Math.round(
-            infrastructure.renewableEnergy
-        ).toLocaleString("en-IN") +
-        " kWh/day";
-
-    impactFuel.textContent =
-        fuelSaved.toFixed(1) +
-        " L/day";
-
-    impactCO2.textContent =
-        co2Reduction.toFixed(1) +
-        " kg/day";
-
-    document.getElementById("visualInfraCost").textContent = impactCost.textContent;
-    document.getElementById("visualInfraEnergy").textContent = impactEnergy.textContent;
-    document.getElementById("visualInfraFuel").textContent = impactFuel.textContent;
-    document.getElementById("visualInfraCO2").textContent = impactCO2.textContent;
-    document.getElementById("visualInfraSummary").textContent =
-        `${Math.round(infrastructure.batteryCapacity).toLocaleString("en-IN")} kWh battery support and ` +
-        `${Math.round(infrastructure.fuelStorage).toLocaleString("en-IN")} L additional fuel storage are included in the scenario.`;
-}
-
-function updateSimulationVisualization(
-    labels,
-    energy,
-    fuel,
-    risk,
-    peakRisk,
-    averageEnergy,
-    totalFuelUsed,
-    highRiskDays
-) {
-    const period = document.getElementById("visualizationPeriod");
-    const visualRisk = document.getElementById("visualRisk");
-    const summary = document.getElementById("visualSimulationSummary");
-
-    const startDate = document.getElementById("startDate")?.value;
-    const endDate = document.getElementById("endDate")?.value;
-
-    if (period) {
-        period.textContent = `${startDate} → ${endDate}`;
-    }
-
-    if (visualRisk) {
-        visualRisk.textContent =
-            `${riskLabel(peakRisk)} — ${Math.round(peakRisk)}/100`;
-    }
-
-    if (summary) {
-        summary.textContent =
-            `${labels.length}-day projection: average energy demand ` +
-            `${Math.round(averageEnergy).toLocaleString("en-IN")} kWh/day, ` +
-            `${Math.round(totalFuelUsed).toLocaleString("en-IN")} L fuel used, ` +
-            `${highRiskDays} high-risk days.`;
-    }
-
-    if (simulationEnergyChart) simulationEnergyChart.destroy();
-    if (simulationFuelChart) simulationFuelChart.destroy();
-    if (simulationRiskChart) simulationRiskChart.destroy();
-
-    const energyCanvas = document.getElementById("simulationEnergyChart");
-    const fuelCanvas = document.getElementById("simulationFuelChart");
-    const riskCanvas = document.getElementById("simulationRiskChart");
-
-    if (!energyCanvas || !fuelCanvas || !riskCanvas) return;
-
-    const chartLabels = labels.map((date, index) =>
-        index % Math.ceil(labels.length / 8) === 0
-            ? date.slice(5)
-            : ""
-    );
-
-    simulationEnergyChart = new Chart(energyCanvas, {
-        type: "line",
-        data: {
-            labels: chartLabels,
-            datasets: [{
-                label: "kWh/day",
-                data: energy,
-                borderWidth: 2,
-                pointRadius: 0,
-                tension: 0.3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            }
-        }
-    });
-
-    simulationFuelChart = new Chart(fuelCanvas, {
-        type: "line",
-        data: {
-            labels: chartLabels,
-            datasets: [{
-                label: "Fuel L/day",
-                data: fuel,
-                borderWidth: 2,
-                pointRadius: 0,
-                tension: 0.3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            }
-        }
-    });
-
-    simulationRiskChart = new Chart(riskCanvas, {
-        type: "line",
-        data: {
-            labels: chartLabels,
-            datasets: [{
-                label: "Risk",
-                data: risk,
-                borderWidth: 2,
-                pointRadius: 0,
-                tension: 0.3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                y: {
-                    min: 0,
-                    max: 100
-                }
-            }
-        }
-    });
-}
-
-const runSimulationButton =
-    document.getElementById("runSimulation");
-
-runSimulationButton?.addEventListener(
-    "click",
-    runDigitalTwinSimulation
-);
-
-["personnel", "dailyEnergy", "fuelStock", "waterStock", "foodStock", "medicalStock",
-    "emergencySeverity", "transportAvailability", "temperatureSensitivity", "windSensitivity",
-    "snowfallSensitivity", "stormSensitivity", "baselineRisk", "planningInfrastructureType",
-    "planningCapacity", "projectLifetime", "expectedUtilization", "installationCost",
-    "infrastructureEnergyRequirement"].forEach(id => {
-    document.getElementById(id)?.addEventListener("change", () => {
-        if (document.getElementById("startDate")?.value && document.getElementById("endDate")?.value) {
-            runDigitalTwinSimulation();
-        }
-    });
-});
-
-updateSimulationMode();
-initializeSimulationDates();
-updateSimulationBaseline();
 
 initializeMap();
 updateStationInformation();
 openEnvironmentMap();
 
-setInterval(() => {
-    if (!simulationRunning) {
-        loadWeather();
-    }
-}, 300000);
+setInterval(loadWeather, 300000);
 
 function getCurrentStationPosition() {
     const station = document.getElementById("station");
@@ -1907,18 +938,24 @@ function getCurrentStationPosition() {
     return [-70.7644, 11.7342];
 }
 
-const infraFuelSaved =
-    document.getElementById("infraFuelSaved");
+/* =========================================================
+   ENERGY MANAGEMENT MODEL
 
-const infraCO2 =
-    document.getElementById("infraCO2");
+   The station power system is modelled from data the
+   dashboard already uses: live weather and the power
+   assets installed on the station.
+========================================================= */
 
-function getInfrastructureWeatherValues() {
-    const readValue = (value, elementId) => {
-        const parsed = Number(value);
+function getStationWeatherValues() {
+        const readValue = (value, elementId) => {
+        // Guard against null/undefined: Number(null) === 0 (which is finite!)
+        // and Number(undefined) === NaN, so we must check explicitly.
+        if (value !== null && value !== undefined) {
+            const parsed = Number(value);
 
-        if (Number.isFinite(parsed)) {
-            return parsed;
+            if (Number.isFinite(parsed)) {
+                return parsed;
+            }
         }
 
         const element = document.getElementById(elementId);
@@ -1931,341 +968,358 @@ function getInfrastructureWeatherValues() {
         temperature: readValue(latestWeather?.temperature, "liveTemperature"),
         wind: readValue(latestWeather?.wind_speed, "liveWind"),
         pressure: readValue(latestWeather?.pressure, "livePressure"),
-        humidity: readValue(latestWeather?.humidity, "liveHumidity")
+        humidity: readValue(latestWeather?.humidity, "liveHumidity"),
+        available: Boolean(latestWeather)
     };
 }
 
-function calculateInfrastructureHealth(item, weather = getInfrastructureWeatherValues(), simulation = latestSimulation) {
-    const factors = [];
-    const temp = weather.temperature;
-    const wind = weather.wind;
-    let score = 100;
+function clampEnergyValue(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
 
-    if (!Number.isFinite(temp) || !Number.isFinite(wind)) {
-        return {
-            healthScore: null,
-            status: "UNAVAILABLE",
-            mainRisk: "Weather data unavailable",
-            riskFactors: [],
-            recommendedAction: "Wait for the next station observation before assessing environmental risk.",
-            temperatureStress: "Unavailable",
-            windExposure: "Unavailable",
-            resourceRisk: "Unavailable",
-            currentConditions: "Weather data unavailable"
-        };
-    }
-
-    const coldPenalty = temp < -40 ? 35 : temp < -30 ? 22 : temp < -20 ? 10 : 0;
-    const windPenalty = wind > 25 ? 35 : wind > 20 ? 22 : wind > 15 ? 10 : 0;
-    const temperatureStress = temp < -40 ? "Critical" : temp < -30 ? "High" : temp < -20 ? "Moderate" : "Low";
-    const windExposure = wind > 25 ? "Critical" : wind > 20 ? "High" : wind > 15 ? "Elevated" : "Low";
-    let resourceRisk = "Low";
-
-    if (["solar", "wind", "diesel", "water"].includes(item.type)) {
-        score -= coldPenalty;
-        if (coldPenalty) factors.push(temp < -40 ? `Critical cold stress (${temp.toFixed(1)} °C)` : `Cold stress (${temp.toFixed(1)} °C)`);
-    }
-
-    if (["solar", "wind", "diesel"].includes(item.type)) {
-        score -= windPenalty;
-        if (windPenalty) factors.push(wind > 25 ? `Extreme wind exposure (${wind.toFixed(1)} m/s)` : `High wind exposure (${wind.toFixed(1)} m/s)`);
-    }
-
-    if (item.type === "solar" && (temp < -30 || wind > 20)) {
-        score -= 8;
-        factors.push("Reduced solar performance or snow/ice accumulation risk");
-    }
-
-    if (item.type === "wind" && wind > 25) {
-        score -= 20;
-        factors.push("Extreme wind shutdown risk");
-    }
-
-    if (item.type === "battery") {
-        score -= coldPenalty + (temp < -30 ? 8 : 0);
-        if (coldPenalty) factors.push(`Battery thermal stress (${temp.toFixed(1)} °C)`);
-        if (simulation && Number.isFinite(simulation.averageEnergy) && simulation.averageEnergy > item.capacity * 0.8) {
-            score -= 12;
-            resourceRisk = "Elevated";
-            factors.push("Modeled energy demand is high for installed battery capacity");
-        }
-    }
-
-    if (item.type === "diesel" && simulation && Number(simulation.peakRisk) >= 70) {
-        score -= 12;
-        resourceRisk = "Elevated";
-        factors.push("Simulation shows high operational risk and generator demand");
-    }
-
-    if (item.type === "fuel" && simulation) {
-        const remaining = Number(simulation.fuelRemaining);
-        const projected = Number(simulation.projectedFuelStock);
-        if (Number.isFinite(remaining) && Number.isFinite(projected) && projected > 0 && remaining / projected < 0.25) {
-            score -= 35;
-            resourceRisk = "Critical";
-            factors.push("Projected fuel reserve is low");
-        } else if (simulation.resourceResupplyRequired) {
-            score -= 25;
-            resourceRisk = "Elevated";
-            factors.push("Simulation projects a fuel resupply requirement");
-        }
-        if (temp < -30) {
-            score -= 12;
-            factors.push(`Extreme cold exposure (${temp.toFixed(1)} °C)`);
-        }
-    }
-
-    if (item.type === "water" && simulation && Number.isFinite(simulation.waterRemaining) && simulation.waterRemaining <= 0) {
-        score -= 35;
-        resourceRisk = "Critical";
-        factors.push("Modeled water availability is depleted");
-    }
-
-    score = Math.max(0, Math.min(100, Math.round(score)));
-    const status = score < 45 ? "CRITICAL" : score < 75 ? "WARNING" : "NORMAL";
-    const recommendedAction = getInfrastructureRecommendation(item, factors, status);
-    const mainRisk = item.type === "wind" && wind > 25
-        ? `Extreme wind exposure (${wind.toFixed(1)} m/s)`
-        : factors[0] || "Low assessed environmental risk";
+function getInstalledEnergyCapacity() {
+    const impact = getInfrastructureSimulationImpact();
 
     return {
-        healthScore: score,
-        status,
-        mainRisk,
-        riskFactors: factors,
-        recommendedAction,
-        temperatureStress,
-        windExposure,
-        resourceRisk,
-        currentConditions: `Temperature: ${temp.toFixed(1)} °C | Wind: ${wind.toFixed(1)} m/s | Pressure: ${Number.isFinite(weather.pressure) ? weather.pressure.toFixed(0) : "--"} hPa`
+        solar: stationEnergyBaseline.solar + impact.solarCapacity,
+        wind: stationEnergyBaseline.wind + impact.windCapacity,
+        diesel: stationEnergyBaseline.diesel + impact.dieselCapacity,
+        battery: stationEnergyBaseline.battery + impact.batteryCapacity
     };
 }
 
-function getInfrastructureRecommendation(item, factors, status) {
-    if (status === "NORMAL") {
-        return "No immediate weather-based risk detected. Continue routine inspection.";
-    }
-    if (factors.some(factor => factor.includes("fuel reserve"))) {
-        return "Schedule resupply and verify fuel storage availability.";
-    }
-    if (factors.some(factor => factor.includes("water availability"))) {
-        return "Inspect water treatment operation and review remaining reserves.";
-    }
-    if (item.type === "solar" && factors.some(factor => factor.includes("snow/ice"))) {
-        return "Inspect panel mounting and check for snow or ice accumulation before maintenance.";
-    }
-    if (item.type === "battery") {
-        return "Check thermal protection and available storage capacity.";
-    }
-    if (item.type === "wind" && factors.some(factor => factor.includes("wind"))) {
-        return "Inspect turbine and verify operating or shutdown limits.";
-    }
-    if (item.type === "diesel") {
-        return "Inspect cold-start systems and verify generator readiness.";
-    }
-    if (factors.some(factor => factor.includes("wind"))) {
-        return "Inspect external structures and verify wind-sensitive equipment operating limits.";
-    }
-    return "Check thermal protection, insulation and cold-weather readiness.";
+function getSolarIrradianceFactor(hour) {
+    // Antarctic daylight is modelled with a shallow diurnal curve so the
+    // array keeps a usable output floor through the polar summer.
+    const daylight = Math.max(0, Math.sin((Math.PI * (hour - 4)) / 18));
+
+    return clampEnergyValue(0.12 + daylight * 0.88, 0.12, 1);
 }
 
-function assessInfrastructureHealth() {
-    const checkedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    return stationInfrastructure.map(item => ({
-        ...item,
-        ...calculateInfrastructureHealth(item),
-        station: currentStation,
-        lastChecked: checkedAt,
-        capacityLabel: `${Number(item.capacity).toLocaleString("en-IN")} ${item.unit}`
-    }));
+function getSolarTemperatureFactor(temperature) {
+    const safeTemperature = Number.isFinite(temperature) ? temperature : -18;
+
+    return clampEnergyValue(1 - Math.max(0, -safeTemperature - 25) * 0.005, 0.6, 1);
 }
 
-function infrastructureStatusClass(status) {
-    return status.toLowerCase();
-}
+function getWindCapacityFactor(windSpeed) {
+    const speed = Number.isFinite(windSpeed) ? windSpeed : 8;
 
-function renderInfrastructureHealthCards(assessments) {
-    const container = document.getElementById("infrastructureHealthCards");
-    if (!container) return;
-
-    if (!assessments.length) {
-        container.innerHTML = '<div class="empty-infrastructure">No infrastructure assets added to this station yet.</div>';
-        return;
+    if (speed < 3 || speed > 25) {
+        return 0;
     }
 
-    container.innerHTML = assessments.map(item => {
-        const score = item.healthScore === null ? "--" : `${item.healthScore}%`;
-        const risks = item.riskFactors.length ? item.riskFactors.join("; ") : "Low assessed risk";
-        return `<article class="health-card ${infrastructureStatusClass(item.status)}" data-health-index="${assessments.indexOf(item)}" tabindex="0" role="button" aria-label="Inspect ${item.name} health">
-            <div class="health-card-heading"><div><strong>${item.name}</strong><small>${item.capacityLabel}</small></div><span>${score}</span></div>
-            <div class="health-card-status"><b>${item.status}</b><span>${item.status === "NORMAL" ? "Within assessed limits" : "Inspection recommended"}</span></div>
-            <div class="health-card-factors"><span>Temperature Stress: ${item.temperatureStress}</span><span>Wind Exposure: ${item.windExposure}</span><span>Resource Risk: ${item.resourceRisk}</span></div>
-            <p><b>Risk:</b> ${risks}</p>
-            <p><b>Action:</b> ${item.recommendedAction}</p>
-            <p class="health-card-conditions"><b>Conditions:</b> ${item.currentConditions}</p>
-            <small>Last checked: ${item.lastChecked}</small>
-        </article>`;
-    }).join("");
-
-    container.querySelectorAll(".health-card").forEach(card => {
-        const selectAsset = () => updateSelectedInfrastructureHealth(assessments[Number(card.dataset.healthIndex)]);
-        card.addEventListener("click", selectAsset);
-        card.addEventListener("keydown", event => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                selectAsset();
-            }
-        });
-    });
+    return clampEnergyValue((speed - 3) / 9, 0, 1);
 }
 
-function updateSelectedInfrastructureHealth(item) {
-    const title = document.getElementById("visualInfrastructureSelected");
-    const status = document.getElementById("visualInfrastructureSelectedStatus");
-    const detail = document.getElementById("visualInfrastructureSelectedRisk");
-    const action = document.getElementById("visualInfrastructureSelectedAction");
-    if (!title || !status || !detail || !action) return;
-    if (!item) {
-        title.textContent = "No asset selected";
-        status.textContent = "--";
-        detail.textContent = "Select an installed asset to inspect its assessed risk.";
-        action.textContent = "Recommended action will appear here.";
-        return;
+function getStationLoadDemand(temperature) {
+    const safeTemperature = Number.isFinite(temperature) ? temperature : -18;
+    const heatingFactor = Math.max(0, (-safeTemperature - 12) / 30);
+
+    return stationEnergyBaseline.load * (1 + heatingFactor * 0.35);
+}
+function getEnergySourceStatus(sourceId, source, weather) {
+    if (sourceId === "solar") {
+        return source.generationKw > 0.5 ? "GENERATING" : "IDLE";
     }
-    title.textContent = `${item.name} - ${item.healthScore === null ? "Unavailable" : `${item.healthScore}% ${item.status}`}`;
-    status.textContent = item.status;
-    status.className = infrastructureStatusClass(item.status);
-    detail.textContent = `Risk: ${item.mainRisk}. Factors: ${item.riskFactors.join(" ") || "None currently assessed."} Conditions: ${item.currentConditions}`;
-    action.textContent = `Action: ${item.recommendedAction}`;
+
+    if (sourceId === "wind") {
+        const windSpeed = weather.wind;
+
+        if (Number.isFinite(windSpeed) && windSpeed > 25) {
+            return "SHUTDOWN";
+        }
+
+        if (!Number.isFinite(windSpeed) || windSpeed < 3) {
+            return "IDLE";
+        }
+
+        return source.generationKw > 0.5 ? "GENERATING" : "IDLE";
+    }
+
+    if (sourceId === "diesel") {
+        return source.generationKw > 0.5 ? "RUNNING" : "STANDBY";
+    }
+
+    if (source.batteryKw > 0.5) {
+        return "CHARGING";
+    }
+
+    if (source.batteryKw < -0.5) {
+        return "DISCHARGING";
+    }
+
+    return "HOLDING";
 }
 
-function generateInfrastructureAlerts(assessments) {
-    return assessments
-        .filter(item => item.status === "CRITICAL" || item.status === "WARNING")
-        .sort((a, b) => (a.status === "CRITICAL" ? 0 : 1) - (b.status === "CRITICAL" ? 0 : 1))
-        .map(item => ({
-            status: item.status,
-            name: item.name,
-            problem: item.mainRisk,
-            cause: item.riskFactors.join(" ") || "Environmental stress detected.",
-            action: item.recommendedAction
-        }));
+function getEnergySourceSeverity(sourceId, source, weather) {
+    if (sourceId === "solar") {
+        const output = source.capacity > 0 ? source.generationKw / source.capacity : 0;
+        return output > 0.45 ? "good" : output > 0.18 ? "warning" : "critical";
+    }
+
+    if (sourceId === "wind") {
+        const windSpeed = Number(weather.wind);
+
+        if (Number.isFinite(windSpeed) && windSpeed > 25) {
+            return "critical";
+        }
+
+        const output = source.capacity > 0 ? source.generationKw / source.capacity : 0;
+        return output > 0.3 ? "good" : output > 0.1 ? "warning" : "critical";
+    }
+
+    if (sourceId === "diesel") {
+        return source.generationKw > 0.5 ? "critical" : "neutral";
+    }
+
+    // Battery: green when charging/holding, orange when moderately
+    // discharging, red when heavily discharging or critically low.
+    const batteryKwh = source.capacity || 0;
+
+    if (source.batteryKw < -(batteryKwh * 0.14)) {
+        return "critical";
+    }
+
+    if (source.batteryKw < -0.5) {
+        return "warning";
+    }
+
+    if ((source.storageLevel || 100) < 20) {
+        return "critical";
+    }
+
+    return "good";
 }
 
-function updateInfrastructureHealthVisualization(assessments, summary, alerts) {
-    const setText = (id, value) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
+function computeEnergyState(weather, capacity, hour) {
+    const solarKw =
+        capacity.solar *
+        getSolarIrradianceFactor(hour) *
+        getSolarTemperatureFactor(weather.temperature);
+
+    const windKw =
+        capacity.wind * getWindCapacityFactor(weather.wind);
+
+    const renewableKw = solarKw + windKw;
+    const consumptionKw = getStationLoadDemand(weather.temperature);
+    const renewableBalanceKw = renewableKw - consumptionKw;
+
+    const coverage = consumptionKw > 0 ? renewableKw / consumptionKw : 1;
+    const storageLevel = Math.round(
+        clampEnergyValue(52 + (coverage - 0.8) * 45, 8, 97)
+    );
+
+    const chargeLimitKw = capacity.battery * 0.2;
+    const dischargeLimitKw = Math.min(
+        chargeLimitKw,
+        capacity.battery * (storageLevel / 100)
+    );
+
+    let batteryKw = 0;
+    let dieselKw = 0;
+
+    if (renewableBalanceKw > 0.5) {
+        batteryKw = Math.min(renewableBalanceKw, chargeLimitKw);
+    } else if (renewableBalanceKw < -0.5) {
+        const deficitKw = -renewableBalanceKw;
+
+        // Battery absorbs short-term variation first, preserving diesel fuel.
+        // The backup generator only covers sustained shortfall beyond what the
+        // battery discharge limit can supply, at exactly the level required.
+        const storageSupportKw = Math.min(deficitKw, dischargeLimitKw);
+        const remainingDeficit = deficitKw - storageSupportKw;
+
+        dieselKw =
+            remainingDeficit > 0.5
+                ? Math.min(capacity.diesel, remainingDeficit)
+                : 0;
+
+        batteryKw = -storageSupportKw;
+    }
+
+    const generationKw = renewableKw + dieselKw;
+    const batterySupportKw = Math.max(0, -batteryKw);
+    const supplyKw = generationKw + batterySupportKw;
+    const shareOf = value => (supplyKw > 0 ? (value / supplyKw) * 100 : 0);
+
+    const sourceValues = {
+        solar: { generationKw: solarKw, share: shareOf(solarKw) },
+        wind: { generationKw: windKw, share: shareOf(windKw) },
+        diesel: { generationKw: dieselKw, share: shareOf(dieselKw) },
+        battery: { generationKw: batterySupportKw, share: shareOf(batterySupportKw) }
     };
 
-    const weather = getInfrastructureWeatherValues();
+    const sources = Object.values(energySourceDefinitions).map(definition => {
+        const values = sourceValues[definition.id];
 
-    const highestRisk = assessments
-        .filter(item => item.healthScore !== null)
-        .sort((a, b) => a.healthScore - b.healthScore)[0];
+        const source = {
+            ...definition,
+            capacity:
+                definition.id === "battery"
+                    ? capacity.battery
+                    : capacity[definition.id],
+            generationKw: values.generationKw,
+            share: values.share,
+            batteryKw
+        };
 
-    setText(
-        "visualInfrastructureHealth",
-        summary.score === null ? "--" : `${summary.score}%`
-    );
-
-    setText(
-        "visualInfrastructureStatus",
-        summary.status
-    );
-
-    setText(
-        "visualInfrastructureAlerts",
-        String(alerts.length)
-    );
-
-    setText(
-        "visualInfrastructureHighestRisk",
-        highestRisk?.name ||
-        (summary.environmentalRisks?.length ? "Station Environment" : "None")
-    );
-
-    if (Number.isFinite(weather.temperature) && Number.isFinite(weather.wind)) {
-        setText(
-            "visualInfrastructureEnvironment",
-            `Temperature: ${weather.temperature.toFixed(1)} °C | Wind: ${weather.wind.toFixed(1)} m/s | Pressure: ${
-                Number.isFinite(weather.pressure)
-                    ? weather.pressure.toFixed(0)
-                    : "--"
-            } hPa`
+        source.status = getEnergySourceStatus(definition.id, source, weather);
+        source.severity = getEnergySourceSeverity(
+            definition.id,
+            { ...source, storageLevel },
+            weather
         );
-    } else {
-        setText(
-            "visualInfrastructureEnvironment",
-            "Weather data unavailable"
-        );
-    }
 
-    const breakdown = document.getElementById(
-        "visualInfrastructureBreakdown"
-    );
-
-    if (breakdown) {
-        breakdown.innerHTML = assessments.length
-            ? assessments.map((item, index) => `
-                <div
-                    class="visual-health-row ${infrastructureStatusClass(item.status)}"
-                    data-health-index="${index}"
-                >
-                    <span>${item.name}</span>
-                    <b class="${infrastructureStatusClass(item.status)}">
-                        ${
-                            item.healthScore === null
-                                ? "--"
-                                : `${item.healthScore}% ${item.status}`
-                        }
-                    </b>
-                </div>
-            `).join("")
-            : `
-                <div class="visual-health-row ${infrastructureStatusClass(summary.environmentalStatus)}">
-                    <span>Station Environment</span>
-                    <b class="${infrastructureStatusClass(summary.environmentalStatus)}">
-                        ${
-                            summary.environmentalScore === null
-                                ? "--"
-                                : `${summary.environmentalScore}% ${summary.environmentalStatus}`
-                        }
-                    </b>
-                </div>
-            `;
-    }
-
-    breakdown?.querySelectorAll(".visual-health-row").forEach(row => {
-        row.addEventListener("click", () => {
-            const index = Number(row.dataset.healthIndex);
-
-            if (Number.isFinite(index) && assessments[index]) {
-                updateSelectedInfrastructureHealth(assessments[index]);
-            }
-        });
+        return source;
     });
 
-    if (highestRisk) {
-        updateSelectedInfrastructureHealth(highestRisk);
-    } else {
-        const title = document.getElementById("visualInfrastructureSelected");
-        const detail = document.getElementById("visualInfrastructureSelectedRisk");
+    const state =
+        renewableBalanceKw > 3
+            ? "SURPLUS"
+            : renewableBalanceKw > -3
+                ? "BALANCED"
+                : "DEFICIT";
 
-        if (title) {
-            title.textContent =
-                summary.environmentalScore === null
-                    ? "No environmental assessment"
-                    : `Station Environment - ${summary.environmentalScore}% ${summary.environmentalStatus}`;
-        }
+    const backupStatus =
+        capacity.diesel <= 0
+            ? "NOT INSTALLED"
+            : dieselKw > 0.5
+                ? `RUNNING · ${dieselKw.toFixed(1)} kW`
+                : `STANDBY · ${Math.round(capacity.diesel)} kW available`;
 
-        if (detail) {
-            detail.textContent =
-                summary.environmentalRisks?.length
-                    ? summary.environmentalRisks.join(" ")
-                    : "No immediate weather-based infrastructure risk detected.";
-        }
+    return {
+        weather,
+        capacity,
+        solarKw,
+        windKw,
+        renewableKw,
+        dieselKw,
+        batteryKw,
+        batterySupportKw,
+        generationKw,
+        consumptionKw,
+        balanceKw: renewableBalanceKw,
+        storageKwh: capacity.battery,
+        storageLevel,
+        renewableShare:
+            generationKw > 0 ? (renewableKw / generationKw) * 100 : 0,
+        efficiency: (() => {
+            if (consumptionKw <= 0) {
+                return 100;
+            }
+
+            const renewableRatio =
+                generationKw > 0 ? (renewableKw / generationKw) * 100 : 0;
+            const balanceScore =
+                clampEnergyValue(
+                    100 - (Math.abs(renewableBalanceKw) / consumptionKw) * 100,
+                    0,
+                    100
+                );
+            const dieselAvoidance =
+                generationKw > 0
+                    ? 100 - (dieselKw / generationKw) * 100
+                    : 100;
+
+            return Math.round(
+                clampEnergyValue(
+                    renewableRatio * 0.5 +
+                        balanceScore * 0.3 +
+                        dieselAvoidance * 0.2,
+                    0,
+                    100
+                )
+            );
+        })(),
+        state,
+        backupStatus,
+        sources,
+        flowSummary: getEnergyFlowSummary(renewableKw, batteryKw, dieselKw)
+    };
+}
+
+function getStationEnergyState() {
+    const weather = getStationWeatherValues();
+    const capacity = getInstalledEnergyCapacity();
+    const now = new Date();
+    const hour = now.getUTCHours() + now.getUTCMinutes() / 60;
+
+    return computeEnergyState(weather, capacity, hour);
+}
+
+function getEnergyFlowSummary(renewableKw, batteryKw, dieselKw) {
+    const storageText =
+        batteryKw > 0.5
+            ? `storage charging at ${batteryKw.toFixed(1)} kW`
+            : batteryKw < -0.5
+                ? `storage discharging at ${Math.abs(batteryKw).toFixed(1)} kW`
+                : "storage holding level";
+
+    const backupText =
+        dieselKw > 0.5
+            ? `backup generator supplying ${dieselKw.toFixed(1)} kW`
+            : "backup generator on standby";
+
+    return `${renewableKw.toFixed(1)} kW renewable generation · ${storageText} · ${backupText}.`;
+}
+function getEnergyForecastPoints(state, hours = 8) {
+    const hourly = latestWeather?.hourly || {};
+    const temperatures = Array.isArray(hourly.temperature) ? hourly.temperature : [];
+    const winds = Array.isArray(hourly.wind_speed) ? hourly.wind_speed : [];
+    const now = new Date();
+    const points = [];
+
+    for (let index = 0; index < hours; index++) {
+        const pointTime = new Date(now.getTime() + index * 3600000);
+        const hour = pointTime.getUTCHours();
+
+        const forecastTemperature = Number(temperatures[index]);
+        const forecastWind = Number(winds[index]);
+
+        const temperature = Number.isFinite(forecastTemperature)
+            ? forecastTemperature
+            : state.weather.temperature;
+
+        const windSpeed = Number.isFinite(forecastWind)
+            ? forecastWind
+            : state.weather.wind;
+
+        const solarKw =
+            state.capacity.solar *
+            getSolarIrradianceFactor(hour) *
+            getSolarTemperatureFactor(temperature);
+
+        const windKw =
+            state.capacity.wind * getWindCapacityFactor(windSpeed);
+
+        const generationKw = solarKw + windKw;
+        const consumptionKw = getStationLoadDemand(temperature);
+        const balanceKw = generationKw - consumptionKw;
+
+        points.push({
+            label: `${String(hour).padStart(2, "0")}:00`,
+            generationKw,
+            consumptionKw,
+            balanceKw,
+            state:
+                balanceKw > 3
+                    ? "SURPLUS"
+                    : balanceKw > -3
+                        ? "BALANCED"
+                        : "DEFICIT"
+        });
     }
+
+    return points;
+}
+
+function getStationEnergySnapshot() {
+    const state = getStationEnergyState();
+
+    state.forecast = getEnergyForecastPoints(state, 8);
+
+    return state;
 }
 
 const station3DStructures = [
@@ -2313,340 +1367,214 @@ const station3DStructures = [
     }
 ];
 
-function getInfrastructure3DStatusColor(status) {
-    if (status === "CRITICAL") return 0xb64f4f;
-    if (status === "WARNING") return 0xc58a4a;
-    return 0x4c8a70;
+/* =========================================================
+   ENERGY 3D MODEL
+
+   The station modules stay in place while the power system is
+   modelled around them: solar arrays, wind turbines, battery
+   storage and the backup generator, with animated energy flow
+   towards the station load.
+========================================================= */
+
+const energy3DLayout = {
+    solar: [-12, 0, 7],
+    wind: [-13, 0, -4],
+    battery: [5, 0, 6],
+    diesel: [7, 0, -10]
+};
+
+const energy3DAnchors = {
+    solar: [-12, 2.2, 8.6],
+    wind: [-13, 5.8, -4],
+    battery: [5, 2, 6],
+    diesel: [7, 2.2, -9],
+    load: [3, 3.4, 1]
+};
+
+function energy3DPosition(position) {
+    return new THREE.Vector3(position[0], position[1], position[2]);
 }
 
-function getInfrastructure3DStatusName(score) {
-    if (score < 45) return "CRITICAL";
-    if (score < 75) return "WARNING";
-    return "NORMAL";
+function getEnergy3DSource(state, sourceId) {
+    return state?.sources?.find(source => source.id === sourceId) || null;
 }
 
-function calculateStationStructureHealth(structure) {
-    const assessment = calculateInfrastructureDamageSimulation(structure);
-    return {
-        ...assessment,
-        status: getInfrastructure3DStatusName(assessment.healthScore),
-        mainReason: assessment.mainReason,
-        simulationActive: infrastructureDamageSimulation.active
-    };
+function getEnergy3DOutputFactor(source) {
+    if (!source || !source.capacity) {
+        return 0;
+    }
+
+    return clampEnergyValue(source.generationKw / source.capacity, 0, 1);
 }
 
-function calculateInfrastructureDamageSimulation(structure) {
-    const weather = getInfrastructureWeatherValues();
+const energy3DSeverityColors = {
+    good: 0x22c55e,
+    warning: 0xf59e0b,
+    critical: 0xef4444,
+    neutral: 0x64748b
+};
 
-    const temperature = Number.isFinite(weather.temperature)
-        ? weather.temperature
-        : -18;
+function getEnergy3DSeverityColor(severity) {
+    return energy3DSeverityColors[severity] || energy3DSeverityColors.neutral;
+}
 
-    const wind = Number.isFinite(weather.wind)
-        ? weather.wind
-        : 8;
+function makeEnergy3DStatusLabel(text, position, severity) {
+    const canvas = document.createElement("canvas");
 
-    const scenario =
-        infrastructureDamageSimulation.scenario;
+    canvas.width = 256;
+    canvas.height = 64;
 
-    const duration =
-        infrastructureDamageSimulation.duration;
+    const context = canvas.getContext("2d");
 
-    let simulatedWind = wind;
-    let simulatedTemperature = temperature;
-    let snowfall = 20;
-    let storm = 20;
+    context.fillStyle = "rgba(20, 32, 42, 0.82)";
+    context.beginPath();
+    context.roundRect(4, 8, 248, 48, 12);
+    context.fill();
 
-    if (scenario === "storm") {
-        simulatedWind += 15;
-        snowfall = 75;
-        storm = 90;
-    }
+    context.strokeStyle = `#${new THREE.Color(getEnergy3DSeverityColor(severity)).getHexString()}`;
+    context.lineWidth = 3;
+    context.stroke();
 
-    if (scenario === "blizzard") {
-        simulatedWind += 10;
-        simulatedTemperature -= 8;
-        snowfall = 95;
-        storm = 80;
-    }
+    context.fillStyle = "#f1f6f9";
+    context.font = "bold 24px Arial, sans-serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(text, 128, 33);
 
-    if (scenario === "power") {
-        storm = 35;
-    }
+    const texture = new THREE.CanvasTexture(canvas);
 
-    if (scenario === "fuel") {
-        storm = 30;
-    }
+    texture.anisotropy = 4;
 
-    if (scenario === "water") {
-        snowfall = 45;
-    }
-
-    if (scenario === "combined") {
-        simulatedWind += 18;
-        simulatedTemperature -= 10;
-        snowfall = 95;
-        storm = 95;
-    }
-
-    let dailyDamage = 0;
-    const risks = [];
-
-    const windStress =
-        Math.max(0, simulatedWind - 15) * 1.2;
-
-    const coldStress =
-        Math.max(0, -simulatedTemperature - 20) * 0.8;
-
-    const snowStress =
-        Math.max(0, snowfall - 40) * 0.45;
-
-    const stormStress =
-        Math.max(0, storm - 40) * 0.35;
-
-    switch (structure.type) {
-
-        case "habitat":
-
-            dailyDamage += windStress * 0.45;
-            dailyDamage += coldStress * 0.8;
-            dailyDamage += snowStress * 0.55;
-
-            if (scenario === "power") {
-                dailyDamage += 18;
-                risks.push("Heating and life-support power failure");
-            }
-
-            if (scenario === "blizzard") {
-                dailyDamage += 8;
-                risks.push("Snow accumulation around occupied areas");
-            }
-
-            if (windStress > 8) {
-                risks.push("High wind loading on habitat envelope");
-            }
-
-            if (coldStress > 5) {
-                risks.push("Extreme heating demand");
-            }
-
-            break;
-
-        case "power":
-
-            dailyDamage += windStress * 0.8;
-            dailyDamage += coldStress * 0.7;
-            dailyDamage += stormStress * 0.8;
-
-            if (scenario === "power") {
-                dailyDamage += 45;
-                risks.push("Primary power system failure");
-            }
-
-            if (scenario === "combined") {
-                dailyDamage += 25;
-                risks.push("Grid failure during extreme weather");
-            }
-
-            if (windStress > 10) {
-                risks.push("Wind exposure to external power equipment");
-            }
-
-            if (coldStress > 8) {
-                risks.push("Cold stress on generation equipment");
-            }
-
-            break;
-
-        case "fuel":
-
-            dailyDamage += windStress * 0.35;
-            dailyDamage += snowStress * 0.9;
-
-            if (scenario === "fuel") {
-                dailyDamage += 55;
-                risks.push("Fuel reserve shortage");
-            }
-
-            if (scenario === "combined") {
-                dailyDamage += 30;
-                risks.push("Fuel supply disruption during storm");
-            }
-
-            if (snowfall > 60) {
-                risks.push("Snow accumulation around fuel handling area");
-            }
-
-            break;
-
-        case "water":
-
-            dailyDamage += coldStress * 1.1;
-            dailyDamage += snowStress * 0.35;
-
-            if (scenario === "water") {
-                dailyDamage += 60;
-                risks.push("Water treatment system failure");
-            }
-
-            if (scenario === "power") {
-                dailyDamage += 20;
-                risks.push("Water treatment affected by power loss");
-            }
-
-            if (simulatedTemperature < -25) {
-                risks.push("Cold stress on water infrastructure");
-            }
-
-            break;
-
-        case "communications":
-
-            dailyDamage += windStress * 1.25;
-            dailyDamage += stormStress * 0.9;
-
-            if (scenario === "storm") {
-                dailyDamage += 15;
-                risks.push("Communication mast exposed to severe winds");
-            }
-
-            if (scenario === "combined") {
-                dailyDamage += 25;
-                risks.push("Communications degraded during extreme storm");
-            }
-
-            if (simulatedWind > 25) {
-                risks.push("High wind loading on antenna structure");
-            }
-
-            break;
-
-        case "warehouse":
-
-            dailyDamage += windStress * 0.65;
-            dailyDamage += snowStress * 1.1;
-            dailyDamage += stormStress * 0.45;
-
-            if (scenario === "blizzard") {
-                dailyDamage += 18;
-                risks.push("Heavy snow loading on storage facility");
-            }
-
-            if (scenario === "combined") {
-                dailyDamage += 15;
-                risks.push("Cargo access disrupted by extreme weather");
-            }
-
-            if (snowfall > 60) {
-                risks.push("Snow accumulation blocking access");
-            }
-
-            break;
-    }
-
-    if (scenario === "weather") {
-        risks.unshift("Current station weather stress");
-    }
-
-    if (latestSimulation) {
-        if (
-            structure.type === "power" &&
-            latestSimulation.averageEnergy > 1400
-        ) {
-            dailyDamage += 5;
-            risks.push("High modeled energy demand");
-        }
-
-        if (
-            structure.type === "fuel" &&
-            latestSimulation.resourceResupplyRequired
-        ) {
-            dailyDamage += 8;
-            risks.push("Simulation indicates resupply requirement");
-        }
-
-        if (
-            structure.type === "water" &&
-            latestSimulation.waterRemaining <= 0
-        ) {
-            dailyDamage += 12;
-            risks.push("Modeled water reserve depleted");
-        }
-    }
-
-    const totalDamage = Math.min(
-        100,
-        Math.round(
-            dailyDamage *
-            Math.sqrt(Math.max(1, duration / 24))
-        )
+    const sprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthWrite: false
+        })
     );
 
-    const remainingHealth =
-        Math.max(0, 100 - totalDamage);
+    sprite.scale.set(3.4, 0.85, 1);
+    sprite.position.set(position[0], position[1] + 1.15, position[2]);
 
-    let recommendedAction = "Continue routine inspection and monitor station conditions.";
-    if (structure.type === "habitat") {
-        recommendedAction = "Inspect habitat envelope, heating backup and snow clearance around occupied areas.";
-    } else if (structure.type === "power") {
-        recommendedAction = "Inspect generator and isolate damaged power equipment before restart.";
-    } else if (structure.type === "fuel") {
-        recommendedAction = "Verify fuel storage readiness, access routes and resupply availability.";
-    } else if (structure.type === "water") {
-        recommendedAction = "Inspect water treatment operation, freeze protection and remaining reserves.";
-    } else if (structure.type === "communications") {
-        recommendedAction = "Inspect antenna supports and verify communications redundancy.";
-    } else if (structure.type === "warehouse") {
-        recommendedAction = "Inspect roof snow loading and keep cargo access routes clear.";
+    return sprite;
+}
+
+function getEnergy3DStatusLabel(state, sourceId) {
+    const source = getEnergy3DSource(state, sourceId);
+
+    if (!source) {
+        return { text: "OFFLINE", severity: "neutral" };
     }
 
+    if (sourceId === "battery") {
+        const severity =
+            state.batteryKw < -(state.capacity?.battery || 1) * 0.14
+                ? "critical"
+                : state.batteryKw < -0.5
+                    ? "warning"
+                    : "good";
+
+        const action =
+            state.batteryKw > 0.5 ? "CHARGING"
+            : state.batteryKw < -0.5 ? "DISCHARGING"
+            : "HOLDING";
+
+        return {
+            text: `${Math.round(state.storageLevel)}% | ${action}`,
+            severity
+        };
+    }
+
+    if (sourceId === "diesel") {
+        const running = state.dieselKw > 0.5;
+
+        return {
+            text: running ? "ACTIVE" : "STANDBY",
+            severity: running ? "critical" : "neutral"
+        };
+    }
+
+    const severity =
+        source.severity === "critical" ? "critical"
+        : source.severity === "warning" ? "warning" : "good";
+
     return {
-        damage: totalDamage,
-        healthScore: remainingHealth,
-        risks,
-        mainReason: risks[0] || "No immediate structure-specific stress detected",
-        recommendedAction,
-        scenario,
-        duration,
-        simulatedConditions: {
-            temperature: simulatedTemperature,
-            wind: simulatedWind,
-            snowfall,
-            storm
-        }
+        text: `${Math.round(source.generationKw)} kW | ${
+            severity === "good" ? "GOOD" : severity === "warning" ? "WARNING" : "CRITICAL"
+        }`,
+        severity
     };
 }
 
-function makeInfrastructure3DBuilding(definition, assessment) {
+function createEnergy3DStatusLabels(state) {
+    energy3DStatusLabels.forEach(sprite => {
+        energy3DGroup.remove(sprite);
+        sprite.material.map?.dispose();
+        sprite.material.dispose();
+    });
+
+    energy3DStatusLabels = [];
+
+    ["solar", "wind", "battery", "diesel"].forEach(sourceId => {
+        const label = getEnergy3DStatusLabel(state, sourceId);
+        const sprite = makeEnergy3DStatusLabel(
+            label.text,
+            energy3DAnchors[sourceId],
+            label.severity
+        );
+
+        energy3DGroup.add(sprite);
+        energy3DStatusLabels.push(sprite);
+    });
+}
+
+function attachEnergy3DSelectionRing(group, color, radius) {
+    const ring = new THREE.Mesh(
+        new THREE.RingGeometry(radius, radius + 0.35, 40),
+        new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        })
+    );
+
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.08;
+    ring.visible = false;
+
+    group.add(ring);
+    group.userData.selectionRing = ring;
+
+    return ring;
+}
+
+function makeEnergy3DBuilding(definition, state) {
     const group = new THREE.Group();
 
-    const status = assessment?.status || "NORMAL";
-
-    const colors = {
-        NORMAL: {
+    const palettes = {
+        SURPLUS: {
+            body: 0x5d7f74,
+            roof: 0x243a38,
+            trim: 0x9ab8ae,
+            window: 0x6ee7b7
+        },
+        BALANCED: {
             body: 0x607d8b,
             roof: 0x263746,
             trim: 0x8fa6b3,
-            window: 0x38bdf8,
-            light: 0x22c55e
+            window: 0x38bdf8
         },
-        WARNING: {
+        DEFICIT: {
             body: 0x8a7650,
             roof: 0x4a4030,
             trim: 0xc7a75b,
-            window: 0xfacc15,
-            light: 0xf59e0b
-        },
-        CRITICAL: {
-            body: 0x7f3f3f,
-            roof: 0x3d2020,
-            trim: 0xc45b5b,
-            window: 0xff9b9b,
-            light: 0xef4444
+            window: 0xfacc15
         }
     };
 
-    const palette = colors[status] || colors.NORMAL;
+    const palette = palettes[state?.state] || palettes.BALANCED;
 
     const [width, height, depth] = definition.size;
 
@@ -2671,7 +1599,7 @@ function makeInfrastructure3DBuilding(definition, assessment) {
     const windowMaterial = new THREE.MeshStandardMaterial({
         color: palette.window,
         emissive: palette.window,
-        emissiveIntensity: 0.35,
+        emissiveIntensity: 0.4,
         roughness: 0.25,
         metalness: 0.15
     });
@@ -2686,10 +1614,6 @@ function makeInfrastructure3DBuilding(definition, assessment) {
         new THREE.BoxGeometry(width, height, depth),
         bodyMaterial
     );
-
-    if (assessment?.damage > 0) {
-        body.scale.y = Math.max(0.9, 1 - assessment.damage * 0.0015);
-    }
 
     body.position.y = height / 2 + 0.8;
     body.castShadow = true;
@@ -2725,204 +1649,450 @@ function makeInfrastructure3DBuilding(definition, assessment) {
     );
 
     door.position.set(0, 1.25, depth / 2 + 0.08);
-    door.castShadow = true;
 
     group.add(door);
 
     const windowCount = Math.max(2, Math.floor(width / 2));
 
-    for (let i = 0; i < windowCount; i++) {
-        const x =
-            -width / 2 +
-            (i + 1) * (width / (windowCount + 1));
-
+    for (let index = 0; index < windowCount; index++) {
         const window = new THREE.Mesh(
             new THREE.BoxGeometry(0.75, 0.55, 0.08),
             windowMaterial
         );
 
         window.position.set(
-            x,
+            -width / 2 + ((index + 1) * width) / (windowCount + 1),
             height * 0.58,
-            depth / 2 + 0.07
+            depth / 2 + 0.06
         );
 
         group.add(window);
     }
 
-    const sideWindow = new THREE.Mesh(
-        new THREE.BoxGeometry(
-            Math.min(2.2, width * 0.42),
-            0.55,
-            0.08
-        ),
-        windowMaterial
-    );
-
-    sideWindow.rotation.y = Math.PI / 2;
-
-    sideWindow.position.set(
-        width / 2 + 0.07,
-        height * 0.58,
-        0
-    );
-
-    group.add(sideWindow);
-
-    const statusLight = new THREE.Mesh(
-        new THREE.SphereGeometry(0.16, 16, 16),
-        new THREE.MeshStandardMaterial({
-            color: palette.light,
-            emissive: palette.light,
-            emissiveIntensity: 2
-        })
-    );
-
-    statusLight.position.set(
-        width / 2 - 0.35,
-        height + 1.55,
-        depth / 2 - 0.35
-    );
-
-    group.add(statusLight);
-
-    const statusRing = new THREE.Mesh(
-        new THREE.TorusGeometry(
-            Math.max(width, depth) * 0.18,
-            0.045,
-            8,
-            32
-        ),
-        new THREE.MeshBasicMaterial({
-            color: palette.light,
-            transparent: true,
-            opacity: 0.75
-        })
-    );
-
-    statusRing.rotation.x = Math.PI / 2;
-    statusRing.position.y = 0.12;
-
-    group.add(statusRing);
-
-    const supportPositions = [
-        [-width / 2 + 0.45, -depth / 2 + 0.45],
-        [width / 2 - 0.45, -depth / 2 + 0.45],
-        [-width / 2 + 0.45, depth / 2 - 0.45],
-        [width / 2 - 0.45, depth / 2 - 0.45]
-    ];
-
-    supportPositions.forEach(([x, z]) => {
-        const support = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.12, 0.16, 0.8, 8),
-            trimMaterial
-        );
-
-        support.position.set(x, 0.4, z);
-        support.castShadow = true;
-
-        group.add(support);
-    });
-
-    if (
-        definition.type === "Communications" ||
-        definition.name.toLowerCase().includes("communication")
-    ) {
-        const mast = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.07, 0.1, 3.5, 10),
-            trimMaterial
-        );
-
-        mast.position.y = height + 2.8;
-
-        group.add(mast);
-
-        for (let i = 0; i < 3; i++) {
-            const antenna = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.035, 0.035, 1.2, 8),
+    if (definition.type === "fuel") {
+        for (let index = 0; index < 3; index++) {
+            const tank = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.7, 0.7, 1.6, 14),
                 trimMaterial
             );
 
-            antenna.rotation.z = Math.PI / 2;
-
-            antenna.position.set(
-                0,
-                height + 2.2 + i * 0.55,
-                0
-            );
-
-            group.add(antenna);
-        }
-    }
-
-    if (
-        definition.type === "Fuel" ||
-        definition.name.toLowerCase().includes("fuel")
-    ) {
-        for (let i = -1; i <= 1; i++) {
-            const tank = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.55, 0.55, 2.2, 24),
-                new THREE.MeshStandardMaterial({
-                    color: 0x64748b,
-                    roughness: 0.4,
-                    metalness: 0.55
-                })
-            );
-
-            tank.rotation.z = Math.PI / 2;
-            tank.position.set(
-                i * 1.2,
-                1.25,
-                depth / 2 + 1.0
-            );
-
+            tank.position.set(index * 1.2 - 1.2, 1.25, depth / 2 + 1);
             tank.castShadow = true;
 
             group.add(tank);
         }
     }
 
-    if (
-        definition.type === "Power" ||
-        definition.name.toLowerCase().includes("power")
-    ) {
-        for (let i = -1; i <= 1; i++) {
+    if (definition.id === "power") {
+        for (let index = -1; index <= 1; index++) {
             const pipe = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.08, 0.08, width * 0.7, 10),
                 trimMaterial
             );
 
             pipe.rotation.z = Math.PI / 2;
-
-            pipe.position.set(
-                0,
-                1.15 + i * 0.28,
-                -depth / 2 - 0.12
-            );
+            pipe.position.set(0, 1.15 + index * 0.28, -depth / 2 - 0.12);
 
             group.add(pipe);
         }
     }
 
-    group.position.set(
-        definition.position[0],
-        0,
-        definition.position[2]
-    );
+    group.position.set(definition.position[0], 0, definition.position[2]);
 
     group.userData = {
         id: definition.id,
         name: definition.name,
         type: definition.type,
-        assessment
+        stationModule: true
     };
 
-    infrastructure3DObjects.push(group);
+    return group;
+}
+function makeEnergy3DSolarFarm(source) {
+    const group = new THREE.Group();
+    const output = getEnergy3DOutputFactor(source);
+    const severityColor = getEnergy3DSeverityColor(source?.severity || "good");
+
+    const panelMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2c4761,
+        emissive: severityColor,
+        emissiveIntensity: 0.12 + output * 0.6,
+        roughness: 0.3,
+        metalness: 0.45
+    });
+
+    const frameMaterial = new THREE.MeshStandardMaterial({
+        color: 0x9aa9b2,
+        roughness: 0.7,
+        metalness: 0.2
+    });
+
+    for (let row = 0; row < 2; row++) {
+        for (let column = 0; column < 3; column++) {
+            const x = column * 3.6 - 3.6;
+            const z = row * 2.6;
+
+            const panel = new THREE.Mesh(
+                new THREE.BoxGeometry(3.2, 0.16, 1.7),
+                panelMaterial
+            );
+
+            // Tilted towards the low Antarctic sun.
+            panel.position.set(x, 1.15 + row * 1.4, z);
+            panel.rotation.x = -0.42;
+            panel.castShadow = true;
+
+            group.add(panel);
+
+            [-1.2, 1.2].forEach(offset => {
+                const leg = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.16, 1.05, 0.16),
+                    frameMaterial
+                );
+
+                leg.position.set(x + offset, 0.52, z);
+
+                group.add(leg);
+            });
+        }
+    }
+
+    attachEnergy3DSelectionRing(group, 0xf0b64b, 6.4);
+
+    group.userData = {
+        id: "source-solar",
+        name: source?.name || "Solar Power",
+        energySourceId: "solar"
+    };
 
     return group;
 }
 
-function createInfrastructure3DGround() {
+function makeEnergy3DWindFarm(source) {
+    const group = new THREE.Group();
+    const output = getEnergy3DOutputFactor(source);
+    const spinning = source?.status !== "SHUTDOWN";
+
+    const towerMaterial = new THREE.MeshStandardMaterial({
+        color: 0xd7e0e5,
+        roughness: 0.6,
+        metalness: 0.25
+    });
+
+    const bladeMaterial = new THREE.MeshStandardMaterial({
+        color: 0xdfe9ee,
+        emissive: 0x63b8d8,
+        emissiveIntensity: 0.1 + output * 0.35,
+        roughness: 0.5
+    });
+
+    for (let index = 0; index < 3; index++) {
+        const turbine = new THREE.Group();
+
+        const tower = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.13, 0.2, 5.4, 12),
+            towerMaterial
+        );
+
+        tower.position.y = 2.7;
+        tower.castShadow = true;
+
+        turbine.add(tower);
+
+        const nacelle = new THREE.Mesh(
+            new THREE.BoxGeometry(0.55, 0.5, 0.95),
+            towerMaterial
+        );
+
+        nacelle.position.y = 5.4;
+
+        turbine.add(nacelle);
+
+        const rotor = new THREE.Group();
+        rotor.position.set(0, 5.4, 0.6);
+
+        for (let blade = 0; blade < 3; blade++) {
+            const holder = new THREE.Group();
+            holder.rotation.z = ((Math.PI * 2) / 3) * blade;
+
+            const bladeMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.16, 2.6, 0.08),
+                bladeMaterial
+            );
+
+            bladeMesh.position.y = 1.3;
+
+            holder.add(bladeMesh);
+            rotor.add(holder);
+        }
+
+        turbine.add(rotor);
+
+        turbine.position.set(
+            index * 3.8 - 3.8,
+            0,
+            index % 2 === 0 ? 0 : 2.8
+        );
+
+        group.add(turbine);
+
+        energy3DWindRotors.push({
+            rotor,
+            spinning,
+            speed: spinning ? 0.45 + output * 2.1 : 0
+        });
+    }
+
+    attachEnergy3DSelectionRing(group, 0x63b8d8, 6.6);
+
+    group.userData = {
+        id: "source-wind",
+        name: source?.name || "Wind Power",
+        energySourceId: "wind"
+    };
+
+    return group;
+}
+function makeEnergy3DBatteryBank(source) {
+    const group = new THREE.Group();
+    const charging = source?.status === "CHARGING";
+    const active = charging || source?.status === "DISCHARGING";
+
+    const cabinetMaterial = new THREE.MeshStandardMaterial({
+        color: 0x4d5f6b,
+        roughness: 0.6,
+        metalness: 0.3
+    });
+
+    const ledColor = charging ? 0x22c55e : 0xf59e0b;
+
+    const ledMaterial = new THREE.MeshStandardMaterial({
+        color: ledColor,
+        emissive: ledColor,
+        emissiveIntensity: active ? 0.9 : 0.22,
+        roughness: 0.3
+    });
+
+    for (let index = 0; index < 4; index++) {
+        const x = index * 1.9 - 2.85;
+
+        const cabinet = new THREE.Mesh(
+            new THREE.BoxGeometry(1.6, 1.9, 1.3),
+            cabinetMaterial
+        );
+
+        cabinet.position.set(x, 0.95, 0);
+        cabinet.castShadow = true;
+
+        group.add(cabinet);
+
+        const led = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 0.12, 0.07),
+            ledMaterial
+        );
+
+        led.position.set(x, 1.5, 0.68);
+
+        group.add(led);
+    }
+
+    attachEnergy3DSelectionRing(group, 0x6fa87a, 4.6);
+
+    group.userData = {
+        id: "source-battery",
+        name: source?.name || "Battery Storage",
+        energySourceId: "battery"
+    };
+
+    return group;
+}
+
+function makeEnergy3DGenerator(source) {
+    const group = new THREE.Group();
+    const running = source?.status === "RUNNING";
+
+    const containerMaterial = new THREE.MeshStandardMaterial({
+        color: 0x8a7c56,
+        roughness: 0.72,
+        metalness: 0.22
+    });
+
+    const housingMaterial = new THREE.MeshStandardMaterial({
+        color: 0x5a5f66,
+        roughness: 0.6,
+        metalness: 0.3
+    });
+
+    const indicatorMaterial = new THREE.MeshStandardMaterial({
+        color: running ? 0xef4444 : 0x64748b,
+        emissive: running ? 0xef4444 : 0x334155,
+        emissiveIntensity: running ? 0.95 : 0.15,
+        roughness: 0.35
+    });
+
+    const container = new THREE.Mesh(
+        new THREE.BoxGeometry(3.4, 2.1, 2.4),
+        containerMaterial
+    );
+
+    container.position.y = 1.05;
+    container.castShadow = true;
+
+    group.add(container);
+
+    const housing = new THREE.Mesh(
+        new THREE.BoxGeometry(2.6, 0.9, 1.8),
+        housingMaterial
+    );
+
+    housing.position.y = 2.55;
+
+    group.add(housing);
+
+    const stack = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.22, 0.28, 1.5, 12),
+        housingMaterial
+    );
+
+    stack.position.set(1.2, 3.6, 0);
+
+    group.add(stack);
+
+    const indicator = new THREE.Mesh(
+        new THREE.BoxGeometry(2.2, 0.16, 0.08),
+        indicatorMaterial
+    );
+
+    indicator.position.set(0, 1.5, 1.24);
+
+    group.add(indicator);
+
+    // Fuel tank links the generator to the fuel depot behind the station.
+    const tank = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.85, 0.85, 1.7, 16),
+        housingMaterial
+    );
+
+    tank.position.set(-3, 0.85, 0.4);
+    tank.castShadow = true;
+
+    group.add(tank);
+
+    attachEnergy3DSelectionRing(group, 0xd98f4a, 5.2);
+
+    group.userData = {
+        id: "source-diesel",
+        name: source?.name || "Diesel Generator",
+        energySourceId: "diesel"
+    };
+
+    return group;
+}
+function createEnergy3DFlow(from, to, color, pulseCount, speed) {
+    const start = energy3DPosition(from);
+    const end = energy3DPosition(to);
+    const mid = start.clone().lerp(end, 0.5);
+
+    mid.y += Math.max(1.4, start.distanceTo(end) * 0.14);
+
+    const curve = new THREE.CatmullRomCurve3([start, mid, end]);
+
+    const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(curve.getPoints(28)),
+        new THREE.LineBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.32
+        })
+    );
+
+    const pulses = [];
+
+    for (let index = 0; index < pulseCount; index++) {
+        const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.22, 10, 8),
+            new THREE.MeshStandardMaterial({
+                color,
+                emissive: color,
+                emissiveIntensity: 1,
+                roughness: 0.4
+            })
+        );
+
+        pulses.push({
+            mesh,
+            progress: index / Math.max(1, pulseCount)
+        });
+    }
+
+    return { line, curve, pulses, speed };
+}
+
+function createEnergy3DFlows(state) {
+    energy3DFlows = [];
+
+    const flowPlan = [
+        {
+            id: "solar",
+            from: energy3DAnchors.solar,
+            to: energy3DAnchors.battery,
+            color: energySourceDefinitions.solar.color
+        },
+        {
+            id: "wind",
+            from: energy3DAnchors.wind,
+            to: energy3DAnchors.battery,
+            color: energySourceDefinitions.wind.color
+        },
+        {
+            id: "diesel",
+            from: energy3DAnchors.diesel,
+            to: energy3DAnchors.battery,
+            color: energySourceDefinitions.diesel.color
+        },
+        {
+            id: "battery",
+            from: energy3DAnchors.battery,
+            to: energy3DAnchors.load,
+            color: energySourceDefinitions.battery.color
+        }
+    ];
+
+    flowPlan.forEach(plan => {
+        const source = plan.id === "battery" ? null : getEnergy3DSource(state, plan.id);
+
+        const outputKw =
+            plan.id === "battery"
+                ? Math.max(0, -(state?.batteryKw || 0))
+                : source?.generationKw || 0;
+
+        const referenceCapacity =
+            plan.id === "battery"
+                ? Math.max(1, (state?.capacity?.battery || 1) * 0.2)
+                : Math.max(1, source?.capacity || 1);
+
+        const intensity = clampEnergyValue(outputKw / referenceCapacity, 0, 1);
+        const pulseCount = outputKw > 1 ? 3 : outputKw > 0.2 ? 1 : 0;
+
+        if (!pulseCount) {
+            return;
+        }
+
+        const flow = createEnergy3DFlow(
+            plan.from,
+            plan.to,
+            plan.color,
+            pulseCount,
+            0.1 + intensity * 0.28
+        );
+
+        flow.sourceId = plan.id;
+
+        energy3DFlows.push(flow);
+    });
+}
+
+function createEnergy3DGround() {
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(42, 34),
         new THREE.MeshStandardMaterial({
@@ -2935,7 +2105,7 @@ function createInfrastructure3DGround() {
     ground.position.y = -0.05;
     ground.receiveShadow = true;
 
-    infrastructure3DScene.add(ground);
+    energy3DScene.add(ground);
 
     const snow = new THREE.Mesh(
         new THREE.PlaneGeometry(36, 28),
@@ -2949,7 +2119,7 @@ function createInfrastructure3DGround() {
     snow.position.y = 0.01;
     snow.receiveShadow = true;
 
-    infrastructure3DScene.add(snow);
+    energy3DScene.add(snow);
 
     const roadMaterial = new THREE.MeshStandardMaterial({
         color: 0x64748b,
@@ -2963,7 +2133,7 @@ function createInfrastructure3DGround() {
 
     road1.position.set(0, 0.08, 0);
 
-    infrastructure3DScene.add(road1);
+    energy3DScene.add(road1);
 
     const road2 = new THREE.Mesh(
         new THREE.BoxGeometry(28, 0.08, 2.2),
@@ -2972,15 +2142,11 @@ function createInfrastructure3DGround() {
 
     road2.position.set(0, 0.09, 0);
 
-    infrastructure3DScene.add(road2);
+    energy3DScene.add(road2);
 
-    for (let i = 0; i < 18; i++) {
+    for (let index = 0; index < 18; index++) {
         const snowBank = new THREE.Mesh(
-            new THREE.SphereGeometry(
-                0.5 + Math.random() * 0.7,
-                12,
-                8
-            ),
+            new THREE.SphereGeometry(0.5 + Math.random() * 0.7, 12, 8),
             new THREE.MeshStandardMaterial({
                 color: 0xe7eef1,
                 roughness: 1
@@ -2995,196 +2161,205 @@ function createInfrastructure3DGround() {
             -13 + Math.random() * 26
         );
 
-        infrastructure3DScene.add(snowBank);
+        energy3DScene.add(snowBank);
     }
 }
-
-function initializeInfrastructure3D() {
-    if (infrastructure3DInitialized) {
-        updateInfrastructure3D();
+function initializeEnergy3D() {
+    if (energy3DInitialized) {
+        updateEnergy3D();
         return;
     }
 
-    const container = document.getElementById("infrastructure3D");
+    const container = document.getElementById("energy3D");
 
     if (!container || typeof THREE === "undefined") {
-        console.error("Three.js infrastructure model could not initialize.");
+        console.error("Three.js energy model could not initialize.");
         return;
     }
 
-    infrastructure3DScene = new THREE.Scene();
-    infrastructure3DScene.background = new THREE.Color(0xc4d4da);
+    energy3DScene = new THREE.Scene();
+    energy3DScene.background = new THREE.Color(0xc4d4da);
 
-    infrastructure3DCamera = new THREE.PerspectiveCamera(
+    energy3DCamera = new THREE.PerspectiveCamera(
         45,
         container.clientWidth / Math.max(1, container.clientHeight),
         0.1,
-        200
+        220
     );
 
-    infrastructure3DCamera.position.set(22, 20, 25);
+    energy3DCamera.position.set(27, 21, 31);
 
-    infrastructure3DRenderer = new THREE.WebGLRenderer({
+    energy3DRenderer = new THREE.WebGLRenderer({
         antialias: true
     });
 
-    infrastructure3DRenderer.setPixelRatio(
+    energy3DRenderer.setPixelRatio(
         Math.min(window.devicePixelRatio || 1, 1.75)
     );
 
-    infrastructure3DRenderer.setSize(
+    energy3DRenderer.setSize(
         container.clientWidth,
         container.clientHeight
     );
 
-    infrastructure3DRenderer.shadowMap.enabled = true;
+    energy3DRenderer.shadowMap.enabled = true;
 
-    container.appendChild(infrastructure3DRenderer.domElement);
+    container.appendChild(energy3DRenderer.domElement);
 
-    infrastructure3DControls = new THREE.OrbitControls(
-        infrastructure3DCamera,
-        infrastructure3DRenderer.domElement
+    energy3DControls = new THREE.OrbitControls(
+        energy3DCamera,
+        energy3DRenderer.domElement
     );
 
-    infrastructure3DControls.enableDamping = true;
-    infrastructure3DControls.dampingFactor = 0.06;
-    infrastructure3DControls.target.set(0, 0, 0);
-    infrastructure3DControls.minDistance = 12;
-    infrastructure3DControls.maxDistance = 55;
-    infrastructure3DControls.maxPolarAngle = Math.PI / 2.05;
+    energy3DControls.enableDamping = true;
+    energy3DControls.dampingFactor = 0.06;
+    energy3DControls.target.set(-1, 0.8, 0);
+    energy3DControls.minDistance = 14;
+    energy3DControls.maxDistance = 62;
+    energy3DControls.maxPolarAngle = Math.PI / 2.05;
 
     const ambient = new THREE.AmbientLight(0xffffff, 1.15);
-    infrastructure3DScene.add(ambient);
+    energy3DScene.add(ambient);
 
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.7);
     keyLight.position.set(15, 25, 12);
     keyLight.castShadow = true;
-    infrastructure3DScene.add(keyLight);
+    energy3DScene.add(keyLight);
 
     const fillLight = new THREE.DirectionalLight(0xdbeaf0, 0.7);
     fillLight.position.set(-20, 12, -10);
-    infrastructure3DScene.add(fillLight);
+    energy3DScene.add(fillLight);
 
-    createInfrastructure3DGround();
+    createEnergy3DGround();
 
-    infrastructure3DRaycaster = new THREE.Raycaster();
-    infrastructure3DMouse = new THREE.Vector2();
+    energy3DRaycaster = new THREE.Raycaster();
+    energy3DMouse = new THREE.Vector2();
+    energy3DClock = new THREE.Clock();
 
-    infrastructure3DRenderer.domElement.addEventListener(
+    energy3DRenderer.domElement.addEventListener(
         "pointermove",
-        handleInfrastructure3DPointerMove
+        handleEnergy3DPointerMove
     );
 
-    infrastructure3DRenderer.domElement.addEventListener(
+    energy3DRenderer.domElement.addEventListener(
         "click",
-        handleInfrastructure3DClick
+        handleEnergy3DClick
     );
 
     window.addEventListener(
         "resize",
-        resizeInfrastructure3D
+        resizeEnergy3D
     );
 
-    infrastructure3DInitialized = true;
+    energy3DInitialized = true;
 
-    updateInfrastructure3D();
+    updateEnergy3D();
 
-    infrastructure3DRenderLoop();
+    energy3DRenderLoop();
 }
 
-function updateInfrastructure3D() {
-    if (!infrastructure3DScene || !infrastructure3DGroup) {
-        if (infrastructure3DInitialized) {
-            rebuildInfrastructure3D();
-        }
-
+function updateEnergy3D() {
+    if (!energy3DInitialized) {
+        initializeEnergy3D();
         return;
     }
 
-    rebuildInfrastructure3D();
-}
-
-function rebuildInfrastructure3D() {
-    if (!infrastructure3DScene) return;
-
-    if (infrastructure3DGroup) {
-        infrastructure3DScene.remove(infrastructure3DGroup);
+    if (!energy3DScene) {
+        return;
     }
 
-    infrastructure3DGroup = new THREE.Group();
-    infrastructure3DObjects = [];
+    energy3DState = getStationEnergySnapshot();
 
-    station3DStructures.forEach(definition => {
-        const assessment = calculateStationStructureHealth(definition);
-
-        const building = makeInfrastructure3DBuilding(
-            definition,
-            assessment
-        );
-
-        infrastructure3DGroup.add(building);
-    });
-
-    stationInfrastructure.forEach((item, index) => {
-        const assessment = calculateInfrastructureHealth(item);
-
-        const positionMap = {
-            solar: [-4, 0, 7],
-            wind: [3, 0, 7],
-            battery: [-1, 0, 7],
-            diesel: [5, 0, -5],
-            fuel: [8, 0, -5],
-            water: [-1, 0, -6]
-        };
-
-        const position =
-            positionMap[item.type] ||
-            [0, 0, 8];
-
-        const definition = {
-            id: `installed-${index}`,
-            name: item.name,
-            type: item.type,
-            position,
-            size:
-                item.type === "solar"
-                    ? [4.5, 0.35, 2.5]
-                    : item.type === "wind"
-                        ? [2, 1, 2]
-                        : [3, 2, 2.5]
-        };
-
-        const building = makeInfrastructure3DBuilding(
-            definition,
-            assessment
-        );
-
-        if (item.type === "solar") {
-            building.rotation.x = -0.15;
-        }
-
-        infrastructure3DGroup.add(building);
-    });
-
-    infrastructure3DScene.add(infrastructure3DGroup);
-
-    updateInfrastructure3DOverlay();
+    rebuildEnergy3D();
 }
 
-function updateInfrastructure3DOverlay() {
-    const title = document.querySelector(".infra3d-title strong");
+function rebuildEnergy3D() {
+    if (!energy3DScene) {
+        return;
+    }
+
+    if (energy3DGroup) {
+        energy3DScene.remove(energy3DGroup);
+    }
+
+    energy3DGroup = new THREE.Group();
+    energy3DObjects = [];
+    energy3DFlows = [];
+    energy3DWindRotors = [];
+
+    const state = energy3DState || getStationEnergySnapshot();
+
+    station3DStructures.forEach(definition => {
+        energy3DGroup.add(makeEnergy3DBuilding(definition, state));
+    });
+
+    const placements = [
+        { sourceId: "solar", builder: makeEnergy3DSolarFarm },
+        { sourceId: "wind", builder: makeEnergy3DWindFarm },
+        { sourceId: "battery", builder: makeEnergy3DBatteryBank },
+        { sourceId: "diesel", builder: makeEnergy3DGenerator }
+    ];
+
+    placements.forEach(placement => {
+        const source = getEnergy3DSource(state, placement.sourceId);
+        const group = placement.builder(source);
+
+        group.position.set(
+            energy3DLayout[placement.sourceId][0],
+            0,
+            energy3DLayout[placement.sourceId][2]
+        );
+
+        energy3DGroup.add(group);
+        energy3DObjects.push(group);
+    });
+
+    createEnergy3DFlows(state);
+
+    energy3DFlows.forEach(flow => {
+        energy3DGroup.add(flow.line);
+
+        flow.pulses.forEach(pulse => energy3DGroup.add(pulse.mesh));
+    });
+
+    energy3DScene.add(energy3DGroup);
+
+    updateEnergy3DOverlay();
+    updateEnergy3DSelection();
+}
+function updateEnergy3DOverlay() {
+    const title = document.querySelector(".energy3d-title strong");
+    const summary = document.getElementById("energy3dFlowSummary");
 
     if (title) {
         title.textContent =
-            `${stations[currentStation]?.name || "Station"} Digital Twin`;
+            `${stations[currentStation]?.name || "Station"} Energy Model`;
+    }
+
+    if (summary && energy3DState) {
+        summary.textContent = energy3DState.flowSummary;
     }
 }
 
-function getInfrastructure3DNode(object) {
+function applyEnergySimulationTo3D(result) {
+    if (!result) {
+        return;
+    }
+
+    energy3DState = result;
+
+    if (energy3DInitialized) {
+        rebuildEnergy3D();
+    }
+
+    updateEnergy3DOverlay();
+}
+
+function getEnergy3DNode(object) {
     let node = object;
 
     while (node) {
-        if (node.userData?.assessment && node.userData?.name) {
+        if (node.userData?.energySourceId) {
             return node;
         }
 
@@ -3194,185 +2369,170 @@ function getInfrastructure3DNode(object) {
     return null;
 }
 
-function handleInfrastructure3DPointerMove(event) {
-    if (!infrastructure3DRenderer || !infrastructure3DRaycaster) {
-        return;
-    }
+function selectEnergy3DSource(sourceId) {
+    energy3DSelectedSource = sourceId;
 
-    const rect =
-        infrastructure3DRenderer.domElement.getBoundingClientRect();
-
-    infrastructure3DMouse.x =
-        ((event.clientX - rect.left) / rect.width) * 2 - 1;
-
-    infrastructure3DMouse.y =
-        -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    infrastructure3DRaycaster.setFromCamera(
-        infrastructure3DMouse,
-        infrastructure3DCamera
-    );
-
-    const intersections =
-        infrastructure3DRaycaster.intersectObjects(
-            infrastructure3DObjects,
-            true
-        );
-
-    const tooltip =
-        document.getElementById("infra3d-tooltip");
-
-    if (!intersections.length) {
-        infrastructure3DHovered = null;
-
-        if (tooltip) {
-            tooltip.style.display = "none";
-        }
-
-        infrastructure3DRenderer.domElement.style.cursor = "default";
-        return;
-    }
-
-    const node =
-        getInfrastructure3DNode(intersections[0].object);
-
-    if (!node) {
-        infrastructure3DHovered = null;
-
-        if (tooltip) {
-            tooltip.style.display = "none";
-        }
-
-        infrastructure3DRenderer.domElement.style.cursor = "default";
-        return;
-    }
-
-    const data = node.userData;
-
-    infrastructure3DHovered = node;
-
-    infrastructure3DRenderer.domElement.style.cursor = "pointer";
-
-    if (tooltip && data?.assessment) {
-        tooltip.innerHTML =
-            `<strong>${data.name}</strong>` +
-            `<span>${data.assessment.healthScore ?? "--"}% health · ${data.assessment.damage ?? 0}% damage · ${data.assessment.status}</span>` +
-            `<span>${data.assessment.mainReason}</span>`;
-
-        tooltip.style.display = "block";
-        tooltip.style.left =
-            `${event.clientX - rect.left + 12}px`;
-        tooltip.style.top =
-            `${event.clientY - rect.top + 12}px`;
-    }
+    updateEnergy3DSelection();
 }
 
-function handleInfrastructure3DClick(event) {
-    if (!infrastructure3DRenderer || !infrastructure3DRaycaster) {
-        return;
+function updateEnergy3DSelection() {
+    const source =
+        energy3DSelectedSource && energy3DState
+            ? getEnergy3DSource(energy3DState, energy3DSelectedSource)
+            : null;
+
+    const name = document.getElementById("energy3dSourceName");
+    const generation = document.getElementById("energy3dSourceGeneration");
+    const share = document.getElementById("energy3dSourceShare");
+    const status = document.getElementById("energy3dSourceStatus");
+
+    if (name) {
+        name.textContent = source ? source.name : "No source selected";
     }
 
-    const rect =
-        infrastructure3DRenderer.domElement.getBoundingClientRect();
-
-    infrastructure3DMouse.x =
-        ((event.clientX - rect.left) / rect.width) * 2 - 1;
-
-    infrastructure3DMouse.y =
-        -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    infrastructure3DRaycaster.setFromCamera(
-        infrastructure3DMouse,
-        infrastructure3DCamera
-    );
-
-    const intersections =
-        infrastructure3DRaycaster.intersectObjects(
-            infrastructure3DObjects,
-            true
-        );
-
-    if (!intersections.length) {
-        return;
+    if (generation) {
+        generation.textContent = source
+            ? `${source.generationKw.toFixed(1)} kW output`
+            : "-- kW";
     }
 
-    const node =
-        getInfrastructure3DNode(intersections[0].object);
-
-    if (!node) {
-        return;
+    if (share) {
+        share.textContent = source
+            ? `${Math.round(source.share)}% of current supply · ${
+                source.id === "battery"
+                    ? `${Math.round(source.capacity).toLocaleString("en-IN")} kWh storage`
+                    : `${Math.round(source.capacity).toLocaleString("en-IN")} kW installed`
+            }`
+            : "Contribution -- %";
     }
 
-    infrastructure3DHovered = node;
-
-    const data = node.userData;
-    const assessment = data.assessment;
-
-    const title =
-        document.getElementById("visualInfrastructureSelected");
-
-    const detail =
-        document.getElementById("visualInfrastructureSelectedRisk");
-
-    const selectedStatus =
-        document.getElementById("visualInfrastructureSelectedStatus");
-
-    const selectedAction =
-        document.getElementById("visualInfrastructureSelectedAction");
-
-    if (title) {
-        title.textContent =
-            `${data.name} - ${assessment.healthScore ?? "--"}% health / ${assessment.damage ?? 0}% damage`;
+    if (status) {
+        status.textContent = source ? source.status : "--";
+        status.className = source
+            ? `energy3d-source-status ${source.status.toLowerCase()}`
+            : "energy3d-source-status";
     }
 
-    if (selectedStatus) {
-        selectedStatus.textContent = assessment.status;
-        selectedStatus.className = assessment.status.toLowerCase();
-    }
-
-    if (detail) {
-        detail.textContent =
-            `${assessment.status}. Main reason: ${assessment.mainReason}. ` +
-            `Risks: ${assessment.risks?.join(" ") || "None currently assessed."} ` +
-            `Simulated conditions: ${assessment.simulatedConditions.temperature.toFixed(1)} °C, ` +
-            `${assessment.simulatedConditions.wind.toFixed(1)} m/s wind, ` +
-            `${assessment.simulatedConditions.snowfall.toFixed(0)} snow index.`;
-    }
-
-    if (selectedAction) {
-        selectedAction.textContent = `Recommended action: ${assessment.recommendedAction}`;
-    }
-
-    const highestRisk =
-        document.getElementById("visualInfrastructureHighestRisk");
-
-    if (highestRisk) {
-        highestRisk.textContent = data.name;
-    }
-
-    node.traverse(child => {
-        if (child.material?.emissive) {
-            child.material.emissiveIntensity = 0.8;
+    energy3DObjects.forEach(group => {
+        if (group.userData.selectionRing) {
+            group.userData.selectionRing.visible =
+                group.userData.energySourceId === energy3DSelectedSource;
         }
     });
+}
+function handleEnergy3DPointerMove(event) {
+    if (!energy3DRenderer || !energy3DRaycaster) {
+        return;
+    }
 
-    setTimeout(() => {
-        node.traverse(child => {
-            if (child.material?.emissive) {
-                child.material.emissiveIntensity = 0.35;
-            }
-        });
-    }, 500);
+    const rect =
+        energy3DRenderer.domElement.getBoundingClientRect();
+
+    energy3DMouse.x =
+        ((event.clientX - rect.left) / rect.width) * 2 - 1;
+
+    energy3DMouse.y =
+        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    energy3DRaycaster.setFromCamera(
+        energy3DMouse,
+        energy3DCamera
+    );
+
+    const intersections =
+        energy3DRaycaster.intersectObjects(energy3DObjects, true);
+
+    const tooltip = document.getElementById("energy3d-tooltip");
+
+    const node = intersections.length
+        ? getEnergy3DNode(intersections[0].object)
+        : null;
+
+    if (!node) {
+        energy3DHovered = null;
+
+        if (tooltip) {
+            tooltip.style.display = "none";
+        }
+
+        energy3DRenderer.domElement.style.cursor = "default";
+        return;
+    }
+
+    const source = getEnergy3DSource(
+        energy3DState,
+        node.userData.energySourceId
+    );
+
+    if (!source) {
+        return;
+    }
+
+    energy3DHovered = node;
+
+    energy3DRenderer.domElement.style.cursor = "pointer";
+
+    if (tooltip) {
+        const capacityText =
+            source.id === "battery"
+                ? `${Math.round(source.capacity).toLocaleString("en-IN")} kWh storage`
+                : `${Math.round(source.capacity).toLocaleString("en-IN")} kW installed`;
+
+        tooltip.innerHTML =
+            `<strong>${source.name}</strong>` +
+            `<span>${source.generationKw.toFixed(1)} ${source.unit} · ${source.status}</span>` +
+            `<span>${Math.round(source.share)}% of current supply · ${capacityText}</span>`;
+
+        tooltip.style.display = "block";
+        tooltip.style.left = `${event.clientX - rect.left + 12}px`;
+        tooltip.style.top = `${event.clientY - rect.top + 12}px`;
+    }
 }
 
-function resizeInfrastructure3D() {
-    const container =
-        document.getElementById("infrastructure3D");
+function handleEnergy3DClick(event) {
+    if (!energy3DRenderer || !energy3DRaycaster) {
+        return;
+    }
+
+    const rect =
+        energy3DRenderer.domElement.getBoundingClientRect();
+
+    energy3DMouse.x =
+        ((event.clientX - rect.left) / rect.width) * 2 - 1;
+
+    energy3DMouse.y =
+        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    energy3DRaycaster.setFromCamera(
+        energy3DMouse,
+        energy3DCamera
+    );
+
+    const intersections =
+        energy3DRaycaster.intersectObjects(energy3DObjects, true);
+
+    if (!intersections.length) {
+        return;
+    }
+
+    const node = getEnergy3DNode(intersections[0].object);
+
+    if (!node) {
+        return;
+    }
+
+    energy3DHovered = node;
+
+    selectEnergy3DSource(node.userData.energySourceId);
+}
+
+function resizeEnergy3D() {
+    const container = document.getElementById("energy3D");
 
     if (
         !container ||
-        !infrastructure3DRenderer ||
-        !infrastructure3DCamera
+        !energy3DRenderer ||
+        !energy3DCamera
     ) {
         return;
     }
@@ -3380,220 +2540,484 @@ function resizeInfrastructure3D() {
     const width = Math.max(1, container.clientWidth);
     const height = Math.max(1, container.clientHeight);
 
-    infrastructure3DCamera.aspect =
-        width / height;
+    energy3DCamera.aspect = width / height;
 
-    infrastructure3DCamera.updateProjectionMatrix();
+    energy3DCamera.updateProjectionMatrix();
 
-    infrastructure3DRenderer.setSize(
-        width,
-        height
-    );
+    energy3DRenderer.setSize(width, height);
 }
 
-function infrastructure3DRenderLoop() {
-    if (!infrastructure3DRenderer) return;
+function animateEnergy3D(delta) {
+    energy3DWindRotors.forEach(entry => {
+        entry.rotor.rotation.z += entry.speed * delta;
+    });
+
+    energy3DFlows.forEach(flow => {
+        flow.pulses.forEach(pulse => {
+            pulse.progress = (pulse.progress + flow.speed * delta) % 1;
+
+            flow.curve.getPointAt(pulse.progress, pulse.mesh.position);
+        });
+    });
+}
+
+function energy3DRenderLoop() {
+    if (!energy3DRenderer) return;
 
     requestAnimationFrame(
-        infrastructure3DRenderLoop
+        energy3DRenderLoop
     );
 
-    infrastructure3DControls?.update();
+    const delta = Math.min(0.05, energy3DClock?.getDelta() || 0);
 
-    infrastructure3DRenderer.render(
-        infrastructure3DScene,
-        infrastructure3DCamera
+    animateEnergy3D(delta);
+
+    energy3DControls?.update();
+
+    energy3DRenderer.render(
+        energy3DScene,
+        energy3DCamera
     );
 }
 
-function setInfrastructure3DVisible(visible) {
-    const mapArea =
-        document.querySelector(".map-area");
+function setEnergy3DVisible(visible) {
+    const mapArea = document.querySelector(".map-area");
 
     if (!mapArea) return;
 
     mapArea.classList.toggle(
-        "infrastructure-3d-active",
+        "energy-3d-active",
         visible
     );
 
     if (visible) {
-        initializeInfrastructure3D();
+        initializeEnergy3D();
 
         setTimeout(() => {
-            resizeInfrastructure3D();
-            updateInfrastructure3D();
+            resizeEnergy3D();
+            updateEnergy3D();
         }, 100);
     }
 }
 
-function runInfrastructureDamageSimulation() {
-    infrastructureDamageSimulation.active = true;
-    infrastructureDamageSimulation.scenario = document.getElementById("infrastructureStressScenario")?.value || "weather";
-    infrastructureDamageSimulation.duration = Number(document.getElementById("infrastructureStressDuration")?.value || 24);
-    const status = document.getElementById("infrastructureStressStatus");
-    if (status) status.textContent = "Damage simulation active - click a structure to inspect its stress assessment.";
-    updateInfrastructure3D();
+
+/* =========================================================
+   ENERGY DASHBOARD
+========================================================= */
+
+function setEnergyText(id, value) {
+    const element = document.getElementById(id);
+
+    if (element) element.textContent = value;
 }
 
-function resetInfrastructureDamageSimulation() {
-    infrastructureDamageSimulation = {
-        active: false,
-        scenario: "weather",
-        duration: 24,
-        results: {}
-    };
-    const status = document.getElementById("infrastructureStressStatus");
-    if (status) status.textContent = "Current weather assessment";
-    updateInfrastructure3D();
+function getEnergyStateLabel(state) {
+    if (state === "SURPLUS") return "SURPLUS POWER";
+    if (state === "DEFICIT") return "POWER DEFICIT";
+    return "BALANCED";
 }
 
-document.getElementById("runInfrastructureStressTest")?.addEventListener("click", runInfrastructureDamageSimulation);
-document.getElementById("resetInfrastructureStressTest")?.addEventListener("click", resetInfrastructureDamageSimulation);
+function getEnergyStateShortLabel(state) {
+    if (state === "SURPLUS") return "Surplus";
+    if (state === "DEFICIT") return "Deficit";
+    return "Balanced";
+}
 
-function updateInfrastructureHealthMonitor() {
-    const assessments = assessInfrastructureHealth();
-    const weather = getInfrastructureWeatherValues();
-
-    let environmentalScore = null;
-    let environmentalStatus = "UNAVAILABLE";
-    const environmentalRisks = [];
-
-    if (Number.isFinite(weather.temperature) && Number.isFinite(weather.wind)) {
-        environmentalScore = 100;
-
-        if (weather.temperature < -40) {
-            environmentalScore -= 35;
-            environmentalRisks.push(`Critical cold stress (${weather.temperature.toFixed(1)} °C)`);
-        } else if (weather.temperature < -30) {
-            environmentalScore -= 22;
-            environmentalRisks.push(`Cold stress (${weather.temperature.toFixed(1)} °C)`);
-        } else if (weather.temperature < -20) {
-            environmentalScore -= 10;
-            environmentalRisks.push(`Cold stress (${weather.temperature.toFixed(1)} °C)`);
-        }
-
-        if (weather.wind > 25) {
-            environmentalScore -= 35;
-            environmentalRisks.push(`Extreme wind exposure (${weather.wind.toFixed(1)} m/s)`);
-        } else if (weather.wind > 20) {
-            environmentalScore -= 22;
-            environmentalRisks.push(`High wind exposure (${weather.wind.toFixed(1)} m/s)`);
-        } else if (weather.wind > 15) {
-            environmentalScore -= 10;
-            environmentalRisks.push(`Elevated wind exposure (${weather.wind.toFixed(1)} m/s)`);
-        }
-
-        environmentalScore = Math.max(0, Math.min(100, Math.round(environmentalScore)));
-
-        environmentalStatus =
-            environmentalScore < 45
-                ? "CRITICAL"
-                : environmentalScore < 75
-                    ? "WARNING"
-                    : "NORMAL";
+function getEnergyStateDetail(state, balanceKw, batteryKw) {
+    if (state === "SURPLUS") {
+        return batteryKw > 0.5
+            ? `Renewable generation covers the load with ${balanceKw.toFixed(1)} kW spare, charging storage.`
+            : `Renewable generation covers the station load with ${balanceKw.toFixed(1)} kW spare capacity.`;
     }
 
-    const availableAssets = assessments.filter(item => item.healthScore !== null);
+    if (state === "DEFICIT") {
+        return `Renewables are ${Math.abs(balanceKw).toFixed(1)} kW short. Storage and the backup generator cover the shortfall.`;
+    }
 
-    const assetScore = availableAssets.length
-        ? Math.round(
-            availableAssets.reduce((sum, item) => sum + item.healthScore, 0) /
-            availableAssets.length
-        )
-        : null;
+    return "Renewable generation is matched to the station load within operating tolerance.";
+}
 
-    const critical = assessments.filter(item => item.status === "CRITICAL").length;
-    const warning = assessments.filter(item => item.status === "WARNING").length;
-    const healthy = assessments.filter(item => item.status === "NORMAL").length;
+function renderEnergyStatus(state) {
+    const balanceSign = state.balanceKw >= 0 ? "+" : "-";
 
-    const overallScore = assetScore !== null
-        ? Math.round((assetScore + (environmentalScore ?? assetScore)) / 2)
-        : environmentalScore;
+    setEnergyText("energyGenerationNow", `${state.generationKw.toFixed(1)} kW`);
 
-    const overallStatus =
-        critical > 0 || environmentalStatus === "CRITICAL"
-            ? "CRITICAL"
-            : warning > 0 || environmentalStatus === "WARNING"
-                ? "WARNING"
-                : overallScore !== null
-                    ? "NORMAL"
-                    : "UNAVAILABLE";
+    setEnergyText(
+        "energyGenerationDetail",
+        `${state.renewableKw.toFixed(1)} kW renewable · ${state.dieselKw.toFixed(1)} kW backup`
+    );
 
-    const setText = (id, value) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
+    setEnergyText("energyConsumptionNow", `${state.consumptionKw.toFixed(1)} kW`);
+
+    setEnergyText(
+        "energyConsumptionDetail",
+        Number.isFinite(state.weather.temperature)
+            ? `Heating-adjusted for ${state.weather.temperature.toFixed(1)} °C`
+            : "Modeled station load"
+    );
+
+    setEnergyText("energyStorageNow", `${state.storageLevel} %`);
+
+    setEnergyText(
+        "energyStorageDetail",
+        `${Math.round(state.storageKwh).toLocaleString("en-IN")} kWh of storage capacity`
+    );
+
+    setEnergyText(
+        "energyBalanceNow",
+        `${balanceSign}${Math.abs(state.balanceKw).toFixed(1)} kW ${
+            state.balanceKw > 0
+                ? "surplus"
+                : state.balanceKw < 0
+                    ? "deficit"
+                    : "balanced"
+        }`
+    );
+
+    const balanceState = document.getElementById("energyBalanceState");
+
+    if (balanceState) {
+        balanceState.textContent = getEnergyStateLabel(state.state);
+        balanceState.className =
+            `energy-state-pill ${state.state.toLowerCase()}`;
+    }
+
+    const storageBar = document.getElementById("energyStorageBar");
+
+    if (storageBar) {
+        storageBar.style.width = `${state.storageLevel}%`;
+        storageBar.className =
+            state.storageLevel < 25
+                ? "low"
+                : state.storageLevel < 50
+                    ? "medium"
+                    : "";
+    }
+}
+
+function renderEnergySourceCards(state) {
+    const container = document.getElementById("energySourceCards");
+
+    if (!container) return;
+
+    container.innerHTML = state.sources.map(source => `
+        <article
+            class="energy-source-card ${source.id}"
+            data-energy-source="${source.id}"
+            tabindex="0"
+            role="button"
+            aria-label="Inspect ${source.name}"
+        >
+            <div class="energy-source-heading">
+                <strong>${source.name}</strong>
+                <span class="energy-source-icon">${source.icon}</span>
+            </div>
+
+            <div class="energy-source-value">
+                <b>${source.generationKw.toFixed(1)}</b>
+                <span>${source.unit}</span>
+            </div>
+
+            <div class="energy-source-share">
+                <div class="energy-meter">
+                    <i style="width:${Math.round(source.share)}%"></i>
+                </div>
+
+                <small>${Math.round(source.share)}% of supply · ${source.status}</small>
+            </div>
+        </article>
+    `).join("");
+
+    container.querySelectorAll(".energy-source-card").forEach(card => {
+        const selectSource = () => selectEnergy3DSource(card.dataset.energySource);
+
+        card.addEventListener("click", selectSource);
+
+        card.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                selectSource();
+            }
+        });
+    });
+}
+
+function renderEnergyFlow(state) {
+    const sourceOutputKw = state.solarKw + state.windKw + state.dieselKw;
+
+    setEnergyText("energyFlowSources", `${sourceOutputKw.toFixed(1)} kW`);
+
+    setEnergyText("energyFlowStorage", `${state.storageLevel} %`);
+
+    setEnergyText(
+        "energyFlowStorageNote",
+        state.batteryKw > 0.5
+            ? `Charging ${state.batteryKw.toFixed(1)} kW`
+            : state.batteryKw < -0.5
+                ? `Discharging ${Math.abs(state.batteryKw).toFixed(1)} kW`
+                : "Storage holding"
+    );
+
+    setEnergyText("energyFlowLoad", `${state.consumptionKw.toFixed(1)} kW`);
+}
+/* =========================================================
+   ENERGY CONDITION SIMULATION (right panel)
+
+   energyScenarioDefinitions, hasRunEnergySimulation and
+   lastEnergySimulation are declared with the top-level state near the top of
+   this file so the synchronous startup path can read them safely.
+========================================================= */
+
+function getEnergyScenarioConditions(scenarioKey) {
+    const definition = energyScenarioDefinitions[scenarioKey] || energyScenarioDefinitions.normal;
+    const live = getStationWeatherValues();
+    const baseTemperature = Number.isFinite(live.temperature) ? live.temperature : -18;
+    const baseWind = Number.isFinite(live.wind) ? live.wind : 8;
+    return {
+        definition,
+        temperature: definition.temperature !== null ? definition.temperature : baseTemperature,
+        wind: definition.wind !== null ? definition.wind : baseWind
+    };
+}
+
+function describeSolarAvailability(factor) {
+    if (factor >= 0.9) return "High";
+    if (factor >= 0.6) return "Moderate";
+    if (factor >= 0.3) return "Low";
+    return "Very low";
+}
+
+function updateEnergyScenarioConditions() {
+    const scenarioKey = document.getElementById("energyScenario")?.value || "normal";
+    const resolved = getEnergyScenarioConditions(scenarioKey);
+    setEnergyText("energySimStation", `${stations[currentStation]?.name || "Station"} · ${resolved.definition.label}`);
+    setEnergyText("energySimTemp", `${resolved.temperature.toFixed(1)} °C`);
+    setEnergyText("energySimWind", `${resolved.wind.toFixed(1)} m/s`);
+    setEnergyText("energySimSolar", describeSolarAvailability(resolved.definition.solarFactor));
+    setEnergyText("energySimSnow", resolved.definition.snowfall);
+    setEnergyText("energySimStorm", resolved.definition.storm);
+}
+
+function computeEnergyScenarioResult(scenarioKey) {
+    const resolved = getEnergyScenarioConditions(scenarioKey);
+    const definition = resolved.definition;
+    const capacity = getInstalledEnergyCapacity();
+    const now = new Date();
+    const hour = now.getUTCHours() + now.getUTCMinutes() / 60;
+    const stormFactor = definition.storm === "Extreme" ? 0.7 : definition.storm === "Severe" ? 0.8 : definition.storm === "Moderate" ? 0.92 : 1;
+    const solarKw = capacity.solar * getSolarIrradianceFactor(hour) * getSolarTemperatureFactor(resolved.temperature) * definition.solarFactor * stormFactor;
+    const windKw = capacity.wind * getWindCapacityFactor(resolved.wind) * definition.windFactor * stormFactor;
+    const renewableKw = solarKw + windKw;
+    const consumptionKw = getStationLoadDemand(resolved.temperature) + definition.loadExtraKw;
+    const renewableBalanceKw = renewableKw - consumptionKw;
+    const coverage = consumptionKw > 0 ? renewableKw / consumptionKw : 1;
+    const storageLevel = Math.round(clampEnergyValue(52 + (coverage - 0.8) * 45, 8, 97));
+    const chargeLimitKw = capacity.battery * 0.2;
+    const dischargeLimitKw = Math.min(chargeLimitKw, capacity.battery * (storageLevel / 100));
+    let batteryKw = 0;
+    let dieselKw = 0;
+    if (renewableBalanceKw > 0.5) {
+        batteryKw = Math.min(renewableBalanceKw, chargeLimitKw);
+    } else if (renewableBalanceKw < -0.5) {
+        const deficitKw = -renewableBalanceKw;
+        const storageSupportKw = Math.min(deficitKw, dischargeLimitKw);
+        const remainingDeficit = deficitKw - storageSupportKw;
+        batteryKw = -storageSupportKw;
+    }
+    const generationKw = renewableKw + dieselKw;
+    const simState = renewableBalanceKw > 3 ? "SURPLUS" : renewableBalanceKw > -3 ? "BALANCED" : "DEFICIT";
+
+    const batterySupportKw = Math.max(0, -batteryKw);
+    const supplyKw = generationKw + batterySupportKw;
+    const shareOf = value => (supplyKw > 0 ? (value / supplyKw) * 100 : 0);
+
+    const sourceValues = {
+        solar: { generationKw: solarKw, share: shareOf(solarKw) },
+        wind: { generationKw: windKw, share: shareOf(windKw) },
+        diesel: { generationKw: dieselKw, share: shareOf(dieselKw) },
+        battery: { generationKw: batterySupportKw, share: shareOf(batterySupportKw) }
     };
 
-    setText(
-        "infrastructureHealthStation",
-        stations[currentStation]?.code || currentStation.toUpperCase()
-    );
+    const sources = Object.values(energySourceDefinitions).map(definition => {
+        // Use the outer-scope computed values (solarKw, windKw, dieselKw,
+        // batteryKw) rather than re-deriving per-source.  The scenario-level
+        // solarFactor / windFactor / loadExtraKw belong to the scenario
+        // definition (resolved.definition), NOT the source definition, so
+        // accessing them here would yield undefined and propagate NaN
+        // into the 3D hover / card rendering.
+        const values = sourceValues[definition.id];
 
-    setText(
-        "infrastructureHealthScore",
-        overallScore === null ? "--" : `${overallScore}%`
-    );
+        const source = {
+            ...definition,
+            capacity: definition.id === "battery"
+                ? capacity.battery
+                : capacity[definition.id],
+            generationKw: values.generationKw,
+            share: values.share,
+            batteryKw
+        };
 
-    setText("infrastructureHealthStatus", overallStatus);
-    setText("infrastructureHealthyCount", String(healthy));
-    setText("infrastructureWarningCount", String(warning));
-    setText("infrastructureCriticalCount", String(critical));
+        const weather = {
+            temperature: resolved.temperature,
+            wind: resolved.wind
+        };
 
-    setText(
-        "infrastructureHealthChecked",
-        new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        })
-    );
+        source.status = getEnergySourceStatus(definition.id, source, weather);
+        source.severity = getEnergySourceSeverity(
+            definition.id,
+            { ...source, storageLevel },
+            weather
+        );
 
-    let alertText;
+        return source;
+    });
 
-    if (environmentalRisks.length) {
-        alertText = environmentalRisks.join(" ");
-    } else if (assessments.length) {
-        alertText = "All monitored infrastructure systems are operating within assessed environmental limits.";
-    } else {
-        alertText = "No infrastructure assets installed. Station environment is being monitored.";
+    return {
+        scenarioKey, definition, temperature: resolved.temperature, wind: resolved.wind,
+        capacity, solarKw, windKw, renewableKw, dieselKw, batteryKw,
+        batterySupportKw: Math.max(0, -batteryKw),
+        generationKw, consumptionKw, balanceKw: renewableBalanceKw, storageLevel,
+        renewableShare: generationKw > 0 ? (renewableKw / generationKw) * 100 : 0,
+        state: simState,
+        backupStatus: capacity.diesel <= 0 ? "NOT INSTALLED" : dieselKw > 0.5 ? `RUNNING · ${dieselKw.toFixed(1)} kW` : `STANDBY · ${Math.round(capacity.diesel)} kW available`,
+        sources
+    };
+}
+
+function getEnergySimulationWarnings(result) {
+    const warnings = [];
+    if (result.state === "DEFICIT") warnings.push("POWER DEFICIT");
+    if (result.batteryKw < -0.5) warnings.push("BATTERY DISCHARGING");
+    if (result.batteryKw > 0.5) warnings.push("BATTERY CHARGING");
+    if (result.dieselKw > 0.5) warnings.push("BACKUP GENERATOR REQUIRED");
+    if (result.state === "SURPLUS") warnings.push("SURPLUS POWER");
+    return warnings;
+}
+
+function renderEnergySimulationResult(result) {
+    if (!result) return;
+    setEnergyText("energySimGeneration", `${result.generationKw.toFixed(1)} kW`);
+    setEnergyText("energySimGenerationNote", `Solar ${result.solarKw.toFixed(1)} · Wind ${result.windKw.toFixed(1)} · Backup ${result.dieselKw.toFixed(1)} kW`);
+    setEnergyText("energySimConsumption", `${result.consumptionKw.toFixed(1)} kW`);
+    setEnergyText("energySimStorage", `${result.storageLevel} %`);
+    setEnergyText("energySimBatteryNote", result.batteryKw > 0.5 ? `Charging ${result.batteryKw.toFixed(1)} kW` : result.batteryKw < -0.5 ? `Discharging ${Math.abs(result.batteryKw).toFixed(1)} kW` : "Storage holding");
+    const balanceSign = result.balanceKw >= 0 ? "+" : "-";
+    const balanceWord = result.balanceKw > 0 ? "surplus" : result.balanceKw < 0 ? "deficit" : "balanced";
+    setEnergyText("energySimBalance", `${balanceSign}${Math.abs(result.balanceKw).toFixed(1)} kW ${balanceWord}`);
+    setEnergyText("energySimRenewable", `${Math.round(result.renewableShare)} %`);
+    setEnergyText("energySimBackup", result.backupStatus);
+    const storageBar = document.getElementById("energySimStorageBar");
+    if (storageBar) {
+        storageBar.style.width = `${result.storageLevel}%`;
+        storageBar.className = result.storageLevel < 25 ? "low" : result.storageLevel < 50 ? "medium" : "";
+    }
+    const stateCard = document.getElementById("energySimStateCard");
+    if (stateCard) stateCard.className = `visualization-card energy-state-card ${result.state.toLowerCase()}`;
+    setEnergyText("energySimStateLabel", getEnergyStateLabel(result.state));
+    setEnergyText("energySimStateDetail", getEnergyStateDetail(result.state, result.balanceKw, result.batteryKw));
+    const warningsBox = document.getElementById("energySimWarnings");
+    if (warningsBox) {
+        warningsBox.innerHTML = getEnergySimulationWarnings(result).map(warning => {
+            const level = (warning === "POWER DEFICIT" || warning === "BACKUP GENERATOR REQUIRED") ? "critical" : warning === "BATTERY DISCHARGING" ? "warn" : "ok";
+            return `<span class="energy-sim-warning ${level}">${warning}</span>`;
+        }).join("");
+    }
+}
+
+function updateEnergyScenarioChart() {
+    const canvas = document.getElementById("energySimChart");
+    if (!canvas || typeof Chart === "undefined") return;
+    if (energyBalanceChart) { energyBalanceChart.destroy(); energyBalanceChart = null; }
+    const scenarioKey = document.getElementById("energyScenario")?.value || "normal";
+    const result = hasRunEnergySimulation && lastEnergySimulation ? lastEnergySimulation : computeEnergyScenarioResult(scenarioKey);
+    const now = new Date();
+    const labels = [];
+    const generation = [];
+    const consumption = [];
+    for (let index = 0; index < 6; index++) {
+        const pointTime = new Date(now.getTime() + index * 3600000);
+        const hour = pointTime.getUTCHours();
+        const rel = 0.75 + getSolarIrradianceFactor(hour) * 0.45 - index * 0.02;
+        labels.push(index === 0 ? "Now" : `${String(hour).padStart(2, "0")}:00`);
+        generation.push(Math.round(result.generationKw * rel * 10) / 10);
+        consumption.push(Math.round(result.consumptionKw * (1 + index * 0.008) * 10) / 10);
+    }
+    energyBalanceChart = new Chart(canvas, {
+        type: "line",
+        data: { labels, datasets: [
+            { label: "Generation kW", data: generation, borderColor: "#3b8a68", backgroundColor: "rgba(59, 138, 104, 0.12)", borderWidth: 2, pointRadius: 2, tension: 0.3, fill: true },
+            { label: "Consumption kW", data: consumption, borderColor: "#39779b", backgroundColor: "rgba(57, 119, 155, 0.10)", borderWidth: 2, pointRadius: 2, tension: 0.3, fill: true }
+        ] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: { legend: { display: true, labels: { boxWidth: 9, font: { size: 9 } } } },
+            scales: { x: { ticks: { maxTicksLimit: 6, font: { size: 8 } }, grid: { display: false } }, y: { ticks: { font: { size: 8 } } } }
+        }
+    });
+}
+
+function runEnergyConditionSimulation() {
+    const scenarioKey = document.getElementById("energyScenario")?.value || "normal";
+    updateEnergyScenarioConditions();
+    lastEnergySimulation = computeEnergyScenarioResult(scenarioKey);
+    hasRunEnergySimulation = true;
+    renderEnergySimulationResult(lastEnergySimulation);
+    updateEnergyScenarioChart();
+    applyEnergySimulationTo3D(lastEnergySimulation);
+}
+
+function resetEnergyConditionSimulation() {
+    hasRunEnergySimulation = false;
+    lastEnergySimulation = null;
+
+    const state = getStationEnergySnapshot();
+    energy3DState = state;
+
+    if (energy3DInitialized) {
+        rebuildEnergy3D();
     }
 
-    setText("infrastructureHealthAlerts", alertText);
+    renderEnergyStatus(state);
+    renderEnergySourceCards(state);
+    renderEnergyFlow(state);
+    renderEnergyAnalysis(state);
+    renderEnergyForecast(state);
+    updateEnergyChart(state);
+    updateEnergyDashboard();
+}
 
-    const statusElement = document.getElementById("infrastructureHealthStatus");
+function renderEnergyAnalysis(state) {
+    if (!document.getElementById("energySimGeneration")) return;
+    const scenarioKey = document.getElementById("energyScenario")?.value || "normal";
+    if (!hasRunEnergySimulation && scenarioKey === "normal") updateEnergyScenarioConditions();
+    if (!hasRunEnergySimulation) return;
+    renderEnergySimulationResult(lastEnergySimulation);
+}
 
-    if (statusElement) {
-        statusElement.className =
-            `health-summary-status ${infrastructureStatusClass(overallStatus)}`;
+function renderEnergyForecast(state) {
+    return;
+}
+
+function updateEnergyChart(state) {
+    updateEnergyScenarioChart();
+}
+
+function updateEnergyDashboard() {
+    const state = getStationEnergySnapshot();
+
+    renderEnergyStatus(state);
+    renderEnergySourceCards(state);
+    renderEnergyFlow(state);
+    renderEnergyAnalysis(state);
+    renderEnergyForecast(state);
+    updateEnergyChart(state);
+
+    if (energy3DInitialized) {
+        energy3DState = state;
+
+        rebuildEnergy3D();
     }
-
-    const alertElement = document.getElementById("infrastructureHealthAlerts");
-
-    if (alertElement) {
-        alertElement.className =
-            `health-alerts ${
-                overallStatus === "CRITICAL"
-                    ? "critical"
-                    : overallStatus === "WARNING"
-                        ? "warning"
-                        : "normal"
-            }`;
-    }
-
-    renderInfrastructureHealthCards(assessments);
-
-    updateInfrastructureHealthVisualization(
-        assessments,
-        {
-            score: overallScore,
-            status: overallStatus,
-            environmentalScore,
-            environmentalStatus,
-            environmentalRisks
-        },
-        environmentalRisks
-    );
-    updateInfrastructure3D();
 }
 
 const infrastructureData = {
@@ -3686,65 +3110,44 @@ function updateInfrastructureControls() {
 }
 
 function calculateInfrastructureImpact() {
+    // Installed power assets are part of the energy model, so the status
+    // cards, the energy analysis panel and the 3D scene refresh together.
+    updateEnergyDashboard();
+}
 
-    let totalCost = 0;
-    let totalEnergy = 0;
-    let totalFuel = 0;
-    let totalCO2 = 0;
-
-    stationInfrastructure.forEach(function (item) {
-
-        totalCost += item.cost;
-        totalEnergy += item.energy;
-        totalFuel += item.fuel;
-        totalCO2 += item.co2;
-
-    });
-
-    infraCost.textContent =
-        "₹" +
-        Math.round(totalCost)
-            .toLocaleString("en-IN");
-
-    infraEnergy.textContent =
-        totalEnergy.toFixed(1) +
-        " kWh/day";
-
-    infraFuelSaved.textContent =
-        totalFuel.toFixed(1) +
-        " L/day";
-
-    infraCO2.textContent =
-        totalCO2.toFixed(1) +
-        " kg/day";
-
-    const visualCost = document.getElementById("visualInfraCost");
-    const visualEnergy = document.getElementById("visualInfraEnergy");
-    const visualFuel = document.getElementById("visualInfraFuel");
-    const visualCO2 = document.getElementById("visualInfraCO2");
-
-    if (visualCost) visualCost.textContent = infraCost.textContent;
-    if (visualEnergy) visualEnergy.textContent = infraEnergy.textContent;
-    if (visualFuel) visualFuel.textContent = infraFuelSaved.textContent;
-    if (visualCO2) visualCO2.textContent = infraCO2.textContent;
-
-    const visualSummary = document.getElementById("visualInfraSummary");
-    if (visualSummary) {
-        const lifetime = document.getElementById("projectLifetime")?.value || 20;
-        visualSummary.textContent =
-            `${Math.round(totalEnergy).toLocaleString("en-IN")} kWh/day modeled generation and ` +
-            `${Math.round(totalFuel).toLocaleString("en-IN")} L/day modeled fuel effect over a ` +
-            `${lifetime}-year project life.`;
+function getEnergyAssetDetail(item) {
+    if (item.type === "battery") {
+        return `${item.capacity.toLocaleString("en-IN")} kWh usable storage`;
     }
+
+    if (item.type === "fuel") {
+        return `${item.capacity.toLocaleString("en-IN")} L fuel reserve`;
+    }
+
+    if (item.type === "water") {
+        return `${item.capacity.toLocaleString("en-IN")} L/day treatment capacity`;
+    }
+
+    if (item.energy > 0) {
+        return `${item.energy.toFixed(1)} kWh/day generation`;
+    }
+
+    return `${item.capacity.toLocaleString("en-IN")} ${item.unit} backup capacity`;
 }
 
 function renderInfrastructure() {
 
+    const list = document.getElementById("infrastructureList");
+
+    if (!list) {
+        return;
+    }
+
     if (stationInfrastructure.length === 0) {
 
-        infrastructureList.innerHTML =
+        list.innerHTML =
             `<div class="empty-infrastructure">
-                No additional infrastructure added.
+                No additional power sources added.
             </div>`;
 
         calculateInfrastructureImpact();
@@ -3752,45 +3155,28 @@ function renderInfrastructure() {
         return;
     }
 
-    infrastructureList.innerHTML =
+    list.innerHTML =
         stationInfrastructure.map(function (item, index) {
 
             return `
                 <div class="infrastructure-item">
 
-                    <strong>
-                        ${item.name}
-                    </strong>
+                    <div class="energy-asset-heading">
+
+                        <strong>
+                            ${item.name}
+                        </strong>
+
+                        <span>
+                            ${item.capacity.toLocaleString("en-IN")}
+                            ${item.unit}
+                        </span>
+
+                    </div>
 
                     <span>
-                        Capacity:
-                        ${item.capacity.toLocaleString("en-IN")}
-                        ${item.unit}
+                        ${getEnergyAssetDetail(item)}
                     </span>
-
-                    <span>
-                        Investment:
-                        ₹${Math.round(item.cost)
-                            .toLocaleString("en-IN")}
-                    </span>
-
-                    ${
-                        item.energy > 0
-                        ? `<span>
-                            Energy:
-                            ${item.energy.toFixed(1)} kWh/day
-                           </span>`
-                        : ""
-                    }
-
-                    ${
-                        item.fuel > 0
-                        ? `<span>
-                            Fuel saved:
-                            ${item.fuel.toFixed(1)} L/day
-                           </span>`
-                        : ""
-                    }
 
                     <button
                         class="remove-infrastructure"
@@ -3822,7 +3208,7 @@ function renderInfrastructure() {
 
                     saveStationInfrastructure();
                     renderInfrastructure();
-                    updateInfrastructureHealthMonitor();
+                    updateEnergyDashboard();
                     updateLogistics();
                 }
             );
@@ -3893,7 +3279,7 @@ addInfrastructure?.addEventListener(
 
         saveStationInfrastructure();
         renderInfrastructure();
-        updateInfrastructureHealthMonitor();
+        updateEnergyDashboard();
         updateLogistics();
 
     }
@@ -3902,7 +3288,10 @@ addInfrastructure?.addEventListener(
 updateInfrastructureControls();
 loadStationInfrastructure();
 renderInfrastructure();
-document.getElementById("refreshInfrastructureHealth")?.addEventListener("click", updateInfrastructureHealthMonitor);
+document.getElementById("refreshEnergyStatus")?.addEventListener("click", updateEnergyDashboard);
+document.getElementById("energyScenario")?.addEventListener("change", updateEnergyScenarioConditions);
+document.getElementById("runEnergySimulation")?.addEventListener("click", runEnergyConditionSimulation);
+document.getElementById("energySimReset")?.addEventListener("click", resetEnergyConditionSimulation);
 
 function updateLogistics() {
     const temperature =
@@ -3916,36 +3305,31 @@ function updateLogistics() {
 
     const resources = {
         fuel: {
-            stock: Number(document.getElementById("fuelStock")?.value || 10000),
+            stock: stationLogisticsBaseline.fuelStock,
             unit: "L",
-            daily: latestSimulation?.dailyFuelUse || 0
+            daily: stationLogisticsBaseline.dailyFuelUse
         },
 
         food: {
-            stock: Number(document.getElementById("foodStock")?.value || 3000),
+            stock: stationLogisticsBaseline.foodStock,
             unit: "kg",
-            daily: Number(document.getElementById("personnel")?.value || 45) * 2.2
+            daily: stationLogisticsBaseline.personnel * 2.2
         },
 
         water: {
-            stock: Number(document.getElementById("waterStock")?.value || 6000),
+            stock: stationLogisticsBaseline.waterStock,
             unit: "L",
             daily: 150
         },
 
         medical: {
-            stock: Number(document.getElementById("medicalStock")?.value || 500),
+            stock: stationLogisticsBaseline.medicalStock,
             unit: "units",
-            daily: Number(document.getElementById("personnel")?.value || 45) * 0.02
+            daily: stationLogisticsBaseline.personnel * 0.02
         }
     };
 
     const resource = resources[resourceType];
-
-    if (resourceType === "fuel" && latestSimulation) {
-        resource.stock = latestSimulation.projectedFuelStock;
-        resource.daily = latestSimulation.dailyFuelUse;
-    }
 
     const infrastructure = getInfrastructureSimulationImpact();
     if (resourceType === "water") {
@@ -3959,30 +3343,26 @@ function updateLogistics() {
     const currentTemperature =
         Number.isFinite(temperature) ? temperature : -18;
 
-    let transport = latestSimulation
-        ? latestSimulation.minimumTransport
-        : 100;
+    let transport = 100;
 
-    if (!latestSimulation) {
-        if (currentWind >= 25) {
-            transport -= 25;
-        } else if (currentWind >= 18) {
-            transport -= 15;
-        }
-
-        if (currentTemperature <= -35) {
-            transport -= 25;
-        } else if (currentTemperature <= -25) {
-            transport -= 15;
-        }
-
-        const derivedSnowfall = Math.max(0, Math.min(100, 25 + Math.max(0, (-currentTemperature - 10) * 1.8)));
-        const derivedVisibility = Math.max(15, 100 - derivedSnowfall * 0.55);
-        const derivedStorm = Math.max(0, Math.min(100, (currentWind - 12) * 5 + derivedSnowfall * 0.35));
-        transport -= derivedSnowfall * 0.25;
-        transport -= Math.max(0, 60 - derivedVisibility) * 0.3;
-        transport -= derivedStorm * 0.6;
+    if (currentWind >= 25) {
+        transport -= 25;
+    } else if (currentWind >= 18) {
+        transport -= 15;
     }
+
+    if (currentTemperature <= -35) {
+        transport -= 25;
+    } else if (currentTemperature <= -25) {
+        transport -= 15;
+    }
+
+    const derivedSnowfall = Math.max(0, Math.min(100, 25 + Math.max(0, (-currentTemperature - 10) * 1.8)));
+    const derivedVisibility = Math.max(15, 100 - derivedSnowfall * 0.55);
+    const derivedStorm = Math.max(0, Math.min(100, (currentWind - 12) * 5 + derivedSnowfall * 0.35));
+    transport -= derivedSnowfall * 0.25;
+    transport -= Math.max(0, 60 - derivedVisibility) * 0.3;
+    transport -= derivedStorm * 0.6;
 
     transport = Math.max(
         0,
@@ -3994,27 +3374,9 @@ function updateLogistics() {
             ? resource.stock / resource.daily
             : 0;
 
-    const startDate =
-        document.getElementById("startDate")?.value;
-
-    const endDate =
-        document.getElementById("endDate")?.value;
-
-    let simulationDays = 30;
-
-    if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-
-        simulationDays =
-            Math.max(
-                1,
-                Math.ceil(
-                    (end - start) /
-                    (1000 * 60 * 60 * 24)
-                ) + 1
-            );
-    }
+    // The planning period inputs lived in the simulation tab. The logistics
+    // projection now always looks 30 days ahead.
+    const simulationDays = 30;
 
     const requiredResupply =
         daysRemaining < simulationDays;
@@ -4048,22 +3410,18 @@ function updateLogistics() {
         Math.floor(daysRemaining) +
         " days";
 
-    let depletionDate = "--";
+    const depletionDate = new Date();
 
-    if (startDate) {
-        const date = new Date(startDate);
+    depletionDate.setDate(
+        depletionDate.getDate() +
+        Math.floor(daysRemaining)
+    );
 
-        date.setDate(
-            date.getDate() +
-            Math.floor(daysRemaining)
-        );
-
-        depletionDate =
-            date.toISOString().split("T")[0];
-    }
+    const depletionDateLabel =
+        depletionDate.toISOString().split("T")[0];
 
     document.getElementById("resourceDepletion").textContent =
-        depletionDate;
+        depletionDateLabel;
 
     document.getElementById("transportProgress").style.width =
         `${transport}%`;
@@ -4092,19 +3450,19 @@ function updateLogistics() {
 
         resupplyMessage.textContent =
             `${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} ` +
-            `will be depleted before the ${simulationDays}-day simulation ends.`;
+            `will be depleted before the ${simulationDays}-day projection ends.`;
     } else {
         resupplyStatus.textContent =
             "Resupply Not Required";
 
         resupplyMessage.textContent =
             `Current ${resourceType} stock is sufficient for the ` +
-            `${simulationDays}-day simulation period.`;
+            `${simulationDays}-day projection.`;
     }
 
     document.getElementById("visualLogisticsStatus").textContent =
         requiredResupply ? "RESUPPLY REQUIRED" : "STOCK SUFFICIENT";
-    document.getElementById("visualLogisticsDepletion").textContent = depletionDate;
+    document.getElementById("visualLogisticsDepletion").textContent = depletionDateLabel;
     document.getElementById("visualLogisticsSummary").textContent =
         `${Math.floor(daysRemaining)} days remaining at current ${resourceType} consumption; ` +
         `transport availability is ${Math.round(transport)}%.`;
@@ -4292,7 +3650,7 @@ window.addEventListener("message", event => {
     }
 });
 
-["snow", "visibility", "storm", "wind", "startDate", "endDate"].forEach(id => {
+["snow", "visibility", "storm", "wind"].forEach(id => {
     const element = document.getElementById(id);
 
     if (element) {

@@ -3,8 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import requests
-from bs4 import BeautifulSoup
-import re
 import os
 from datetime import datetime, timezone
 
@@ -24,19 +22,26 @@ if frontend_origins:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Accept", "Content-Type"]
     )
+else:
+    # Permissive fallback for development when FRONTEND_ORIGINS is not set
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"]
+    )
 
 STATIONS = {
     "maitri": {
         "name": "Maitri Research Station",
         "lat": -70.7644,
-        "lon": 11.7342,
-        "url": "https://data.ncpor.res.in/maitri/live"
+        "lon": 11.7342
     },
     "bharati": {
         "name": "Bharati Research Station",
         "lat": -69.4069,
-        "lon": 76.1956,
-        "url": "https://data.ncpor.res.in/bharati/live"
+        "lon": 76.1956
     }
 }
 
@@ -56,123 +61,57 @@ class ChatRequest(BaseModel):
     station: str = "maitri"
     context: dict = {}
 
-def extract_value(text, pattern):
-    match = re.search(pattern, text, re.IGNORECASE)
-    if match:
-        return float(match.group(1))
-    return None
-
-
-def get_open_meteo_hourly(station):
+def get_open_meteo_weather(station):
+    """Fetch the current observation and hourly forecast from Open-Meteo."""
     data = STATIONS[station]
+
     url = (
-        "https://api.open-meteo.com/v1/forecast?"
+        f"https://api.open-meteo.com/v1/forecast?"
         f"latitude={data['lat']}&longitude={data['lon']}&"
-        "hourly=temperature_2m,wind_speed_10m&forecast_days=2&timezone=UTC"
+        f"current=temperature_2m,relative_humidity_2m,surface_pressure,"
+        f"wind_speed_10m,wind_direction_10m&"
+        f"hourly=temperature_2m,wind_speed_10m&timezone=UTC"
     )
 
     response = requests.get(url, timeout=10)
     response.raise_for_status()
     payload = response.json()
-    hourly = payload.get("hourly", {})
-    wind_values = hourly.get("wind_speed_10m", [])
 
-    return {
-        "time": hourly.get("time", [])[:24],
-        "temperature": hourly.get("temperature_2m", [])[:24],
-        "wind_speed": [round(value / 3.6, 2) for value in wind_values[:24]
-                       if value is not None]
-    }
+    current = payload.get("current", {})
+    hourly_data = payload.get("hourly", {})
 
+    wind_kmh = current.get("wind_speed_10m")
+    wind_knots = round(wind_kmh * 0.539957, 2) if wind_kmh is not None else None
+    wind_ms = round(wind_kmh / 3.6, 2) if wind_kmh is not None else None
 
-def get_ncpor_weather(station):
-    data = STATIONS[station]
-
-    response = requests.get(
-        data["url"],
-        headers={
-            "User-Agent": "Mozilla/5.0"
-        },
-        timeout=20
-    )
-
-    response.raise_for_status()
-
-    soup = BeautifulSoup(response.text, "html.parser")
-    text = soup.get_text(" ", strip=True)
-
-    temperature = extract_value(
-        text,
-        r"Temperature:\s*(-?\d+(?:\.\d+)?)\s*°?\s*C"
-    )
-
-    humidity = extract_value(
-        text,
-        r"Relative Humidity:\s*(\d+(?:\.\d+)?)\s*%"
-    )
-
-    pressure = extract_value(
-        text,
-        r"Air Pressure:\s*(\d+(?:\.\d+)?)\s*mBar"
-    )
-
-    wind_knots = extract_value(
-        text,
-        r"Wind Speed\s*(\d+(?:\.\d+)?)\s*knots"
-    )
-
-    date_match = re.search(
-        r"(\d{1,2}\s+[A-Za-z]+\s+\d{4})\s*\|\s*Temperature",
-        text
-    )
-
-    timestamp = date_match.group(1) if date_match else "Latest NCPOR observation"
-
-    if temperature is None:
-        raise HTTPException(
-            status_code=502,
-            detail="Could not extract weather data from NCPOR"
-        )
-
-    wind_ms = None
-
-    if wind_knots is not None:
-        wind_ms = round(wind_knots * 0.514444, 2)
-
-    hourly = {
-        "time": [],
-        "temperature": [],
-        "wind_speed": []
-    }
-    hourly_source = None
-
-    try:
-        hourly = get_open_meteo_hourly(station)
-        hourly_source = "Open-Meteo forecast"
-    except (requests.RequestException, ValueError, KeyError, TypeError):
-        pass
+    # Convert km/h to m/s for hourly chart points
+    hourly_wind_ms = [round(w / 3.6, 2) for w in hourly_data.get("wind_speed_10m", [])]
 
     return {
         "station": station,
         "station_name": data["name"],
         "latitude": data["lat"],
         "longitude": data["lon"],
-        "temperature": temperature,
-        "humidity": humidity,
-        "pressure": pressure,
+        "temperature": current.get("temperature_2m"),
+        "humidity": current.get("relative_humidity_2m"),
+        "pressure": current.get("surface_pressure"),
         "wind_speed": wind_ms,
         "wind_speed_knots": wind_knots,
-        "wind_direction": None,
-        "timestamp": timestamp,
-        "source": "NCPOR",
-        "source_url": data["url"],
-        "hourly": hourly,
-        "hourly_source": hourly_source,
-        "hourly_status": "Forecast/model data" if hourly_source else "Unavailable"
+        "wind_direction": current.get("wind_direction_10m"),
+        "timestamp": current.get("time", "Latest Open-Meteo observation"),
+        "source": "Open-Meteo",
+        "source_url": url,
+        "hourly_source": "Open-Meteo forecast",
+        "hourly": {
+            "time": hourly_data.get("time", []),
+            "temperature": hourly_data.get("temperature_2m", []),
+            "wind_speed": hourly_wind_ms
+        }
     }
 
 
 def get_fallback_weather(station):
+    """Modelled data used only when the live Open-Meteo request fails."""
     data = STATIONS[station]
     defaults = {
         "maitri": {"temperature": -18.0, "humidity": 61.0, "pressure": 987.0, "wind_speed": 8.0},
@@ -197,9 +136,12 @@ def get_fallback_weather(station):
         "latitude": data["lat"],
         "longitude": data["lon"],
         **current,
+        "wind_speed_knots": round(current["wind_speed"] * 1.943844, 2),
+        "wind_direction": None,
         "timestamp": now.isoformat(),
         "source": "Fallback/model data",
-        "source_url": data["url"],
+        "source_url": "https://open-meteo.com/",
+        "hourly_source": "Fallback/model data",
         "hourly": {
             "time": [item["time"] for item in hourly],
             "temperature": [item["temperature"] for item in hourly],
@@ -232,16 +174,16 @@ def get_weather(station: str):
         )
 
     try:
-        return get_ncpor_weather(station)
+        return get_open_meteo_weather(station)
 
     except requests.RequestException as e:
         fallback = get_fallback_weather(station)
-        fallback["error"] = f"NCPOR request failed: {str(e)}"
+        fallback["error"] = f"Open-Meteo request failed: {str(e)}"
         return fallback
 
     except Exception as e:
         fallback = get_fallback_weather(station)
-        fallback["error"] = f"NCPOR response could not be parsed: {str(e)}"
+        fallback["error"] = f"Open-Meteo response could not be parsed: {str(e)}"
         return fallback
 
 
