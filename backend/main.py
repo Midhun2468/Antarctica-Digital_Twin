@@ -32,6 +32,31 @@ else:
         allow_headers=["*"]
     )
 
+
+@app.middleware("http")
+async def disable_heuristic_caching(request, call_next):
+    """Force revalidation of static assets and API responses.
+
+    StaticFiles does not send a Cache-Control header, so browsers fall back to
+    heuristic caching: a previously downloaded script.js can keep being reused
+    without revalidating against the server. That makes frontend edits appear to
+    have no effect until the user performs a hard refresh. Sending "no-cache"
+    makes the browser revalidate on every request, which still returns a cheap
+    304 response when the file is unchanged.
+    """
+    response = await call_next(request)
+
+    content_type = response.headers.get("content-type", "")
+    if (
+        "text/html" in content_type
+        or "javascript" in content_type
+        or "text/css" in content_type
+        or "application/json" in content_type
+    ):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+
+    return response
+
 STATIONS = {
     "maitri": {
         "name": "Maitri Research Station",
@@ -69,7 +94,8 @@ def get_open_meteo_weather(station):
         f"https://api.open-meteo.com/v1/forecast?"
         f"latitude={data['lat']}&longitude={data['lon']}&"
         f"current=temperature_2m,relative_humidity_2m,surface_pressure,"
-        f"wind_speed_10m,wind_direction_10m&"
+        f"wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
+        f"precipitation,snowfall,weather_code,visibility&"
         f"hourly=temperature_2m,wind_speed_10m&timezone=UTC"
     )
 
@@ -81,8 +107,16 @@ def get_open_meteo_weather(station):
     hourly_data = payload.get("hourly", {})
 
     wind_kmh = current.get("wind_speed_10m")
+    gust_kmh = current.get("wind_gusts_10m")
     wind_knots = round(wind_kmh * 0.539957, 2) if wind_kmh is not None else None
     wind_ms = round(wind_kmh / 3.6, 2) if wind_kmh is not None else None
+    gust_ms = round(gust_kmh / 3.6, 2) if gust_kmh is not None else None
+
+    # Visibility is reported by Open-Meteo in metres.
+    visibility_m = current.get("visibility")
+    visibility_km = (
+        round(visibility_m / 1000, 1) if visibility_m is not None else None
+    )
 
     # Convert km/h to m/s for hourly chart points
     hourly_wind_ms = [round(w / 3.6, 2) for w in hourly_data.get("wind_speed_10m", [])]
@@ -98,6 +132,12 @@ def get_open_meteo_weather(station):
         "wind_speed": wind_ms,
         "wind_speed_knots": wind_knots,
         "wind_direction": current.get("wind_direction_10m"),
+        "wind_gusts": gust_ms,
+        "precipitation": current.get("precipitation"),
+        "snowfall": current.get("snowfall"),
+        "weather_code": current.get("weather_code"),
+        "visibility": visibility_m,
+        "visibility_km": visibility_km,
         "timestamp": current.get("time", "Latest Open-Meteo observation"),
         "source": "Open-Meteo",
         "source_url": url,
@@ -114,8 +154,30 @@ def get_fallback_weather(station):
     """Modelled data used only when the live Open-Meteo request fails."""
     data = STATIONS[station]
     defaults = {
-        "maitri": {"temperature": -18.0, "humidity": 61.0, "pressure": 987.0, "wind_speed": 8.0},
-        "bharati": {"temperature": -22.0, "humidity": 64.0, "pressure": 982.0, "wind_speed": 10.0}
+        "maitri": {
+            "temperature": -18.0,
+            "humidity": 61.0,
+            "pressure": 987.0,
+            "wind_speed": 8.0,
+            "wind_direction": 70.0,
+            "wind_gusts": 12.8,
+            "precipitation": 0.2,
+            "snowfall": 0.2,
+            "weather_code": 71,
+            "visibility": 8000.0
+        },
+        "bharati": {
+            "temperature": -22.0,
+            "humidity": 64.0,
+            "pressure": 982.0,
+            "wind_speed": 10.0,
+            "wind_direction": 195.0,
+            "wind_gusts": 16.0,
+            "precipitation": 0.1,
+            "snowfall": 0.1,
+            "weather_code": 71,
+            "visibility": 10000.0
+        }
     }
     current = defaults[station]
     now = datetime.now(timezone.utc)
@@ -137,7 +199,7 @@ def get_fallback_weather(station):
         "longitude": data["lon"],
         **current,
         "wind_speed_knots": round(current["wind_speed"] * 1.943844, 2),
-        "wind_direction": None,
+        "visibility_km": round(current["visibility"] / 1000, 1),
         "timestamp": now.isoformat(),
         "source": "Fallback/model data",
         "source_url": "https://open-meteo.com/",

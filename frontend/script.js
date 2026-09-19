@@ -3697,6 +3697,82 @@ function toggleChat() {
   chatWindow.classList.toggle("hidden");
 }
 
+// Values arriving from the weather API may be null/undefined when Open-Meteo
+// omits a variable. Number(null) is 0, so guard explicitly before coercing.
+// Declared as a function (not a const arrow) so the synchronous startup path
+// can call it before this point in the file is evaluated.
+function weatherNumber(value) {
+    return value === null || value === undefined || value === ""
+        ? NaN
+        : Number(value);
+}
+
+// Open-Meteo reports wind direction in degrees; the warning panel shows the
+// compass point alongside the raw bearing.
+function formatWindDirection(degrees) {
+    if (!Number.isFinite(degrees)) {
+        return null;
+    }
+
+    const compassPoints = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+    const normalised = ((degrees % 360) + 360) % 360;
+    const point = compassPoints[Math.round(normalised / 22.5) % 16];
+
+    return `${point} (${Math.round(normalised)}°)`;
+}
+
+// Open-Meteo reports visibility in metres. Clear-air model output can exceed
+// 90 km, which is not a meaningful station reading, so the display is capped at
+// 20 km while the raw metres value still drives the hazard thresholds.
+function formatVisibility(metres) {
+    if (!Number.isFinite(metres)) {
+        return null;
+    }
+
+    if (metres >= 20000) {
+        return ">20 km";
+    }
+
+    return metres < 1000
+        ? `${Math.round(metres)} m`
+        : `${(metres / 1000).toFixed(1)} km`;
+}
+
+// Open-Meteo reports snowfall in cm for the last hour and precipitation in mm.
+function formatSnowfall(snowfall, precipitation, weatherCode) {
+    const snowWeatherCodes = {
+        71: "Light snow",
+        73: "Moderate snow",
+        75: "Heavy snow",
+        77: "Snow grains",
+        85: "Snow showers",
+        86: "Heavy snow showers"
+    };
+
+    if (Number.isFinite(snowfall) && snowfall > 0) {
+        const rate = `${snowfall.toFixed(1)} cm/h`;
+
+        if (snowfall >= 2) return `Heavy (${rate})`;
+        if (snowfall >= 0.5) return `Moderate (${rate})`;
+
+        return `Light (${rate})`;
+    }
+
+    if (Number.isFinite(precipitation) && precipitation > 0) {
+        return `${precipitation.toFixed(1)} mm/h`;
+    }
+
+    if (Number.isFinite(snowfall) || Number.isFinite(precipitation)) {
+        return "None";
+    }
+
+    if (snowWeatherCodes[weatherCode]) {
+        return snowWeatherCodes[weatherCode];
+    }
+
+    return null;
+}
+
 function getWeatherWarningLevel(score) {
     if (score >= 70) return "CRITICAL";
     if (score >= 45) return "WARNING";
@@ -3709,6 +3785,20 @@ function calculateEarlyWeatherWarning(weather = latestWeather) {
     const wind = Number(weather?.wind_speed);
     const pressure = Number(weather?.pressure);
     const humidity = Number(weather?.humidity);
+    const windDirection = weatherNumber(weather?.wind_direction);
+    const windGusts = weatherNumber(weather?.wind_gusts);
+    const snowfall = weatherNumber(weather?.snowfall);
+    const precipitation = weatherNumber(weather?.precipitation);
+    const weatherCode = weatherNumber(weather?.weather_code);
+    const visibilityRaw = weatherNumber(weather?.visibility);
+    const visibilityKm = weatherNumber(weather?.visibility_km);
+    // Prefer the raw metre reading; fall back to the km value when a source
+    // only supplies the converted field.
+    const visibility = Number.isFinite(visibilityRaw)
+        ? visibilityRaw
+        : Number.isFinite(visibilityKm)
+            ? visibilityKm * 1000
+            : NaN;
     const hourly = weather?.hourly || {};
     const forecastTemperatures = Array.isArray(hourly.temperature) ? hourly.temperature.map(Number).filter(Number.isFinite) : [];
     const forecastWinds = Array.isArray(hourly.wind_speed) ? hourly.wind_speed.map(Number).filter(Number.isFinite) : [];
@@ -3722,7 +3812,7 @@ function calculateEarlyWeatherWarning(weather = latestWeather) {
             triggers: ["Weather data unavailable"],
             headline: "Waiting for station weather data.",
             action: "Wait for the next station observation.",
-            conditions: { temperature: null, wind: null, direction: null, pressure: null, snow: null, visibility: null },
+            conditions: { temperature: null, wind: null, gust: null, direction: null, pressure: null, snow: null, visibility: null },
             timeline: ["Data unavailable", "Data unavailable", "Data unavailable"]
         };
     }
@@ -3770,6 +3860,30 @@ function calculateEarlyWeatherWarning(weather = latestWeather) {
         triggers.push(`Forecast wind escalation to ${forecastMaxWind.toFixed(1)} m/s`);
     }
 
+    if (windGusts >= 30) {
+        score += 15;
+        triggers.push(`Severe wind gusts (${windGusts.toFixed(1)} m/s)`);
+    } else if (windGusts >= 20) {
+        score += 8;
+        triggers.push(`Strong wind gusts (${windGusts.toFixed(1)} m/s)`);
+    }
+
+    if (snowfall >= 2) {
+        score += 18;
+        triggers.push(`Heavy snowfall (${snowfall.toFixed(1)} cm/h)`);
+    } else if (snowfall >= 0.5) {
+        score += 8;
+        triggers.push(`Snowfall (${snowfall.toFixed(1)} cm/h)`);
+    }
+
+    if (visibility <= 1000) {
+        score += 20;
+        triggers.push(`Blizzard visibility (${formatVisibility(visibility)})`);
+    } else if (visibility <= 2000) {
+        score += 6;
+        triggers.push(`Reduced visibility (${formatVisibility(visibility)})`);
+    }
+
     const level = getWeatherWarningLevel(Math.min(100, score));
     const headline = level === "CRITICAL"
         ? "Severe weather conditions detected."
@@ -3795,10 +3909,11 @@ function calculateEarlyWeatherWarning(weather = latestWeather) {
         conditions: {
             temperature,
             wind,
-            direction: null,
+            gust: Number.isFinite(windGusts) ? windGusts : null,
+            direction: formatWindDirection(windDirection),
             pressure,
-            snow: null,
-            visibility: null,
+            snow: formatSnowfall(snowfall, precipitation, weatherCode),
+            visibility: formatVisibility(visibility),
             humidity
         },
         timeline: [
