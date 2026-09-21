@@ -479,7 +479,7 @@ input[type="range"]::-moz-range-thumb {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 9px;
-    padding: 17px;
+    padding: 1px;
 }
 
 .layer-button {
@@ -1409,7 +1409,7 @@ input[type="range"]::-moz-range-thumb {
 .visualization-card canvas {
     width: 100% !important;
     height: 160px !important;
-    margin-top: 8px;
+    margin-top: 3px;
 }
 
 @media (max-width: 1000px) {
