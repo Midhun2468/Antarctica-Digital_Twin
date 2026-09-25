@@ -194,11 +194,16 @@
             data-panel="antarctica3dPanel"
             title="Antarctica 3D"
         >
-            <svg viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="9"></circle>
-                <path d="M3 12c2 3 4.5 5 9 5s7-2 9-5c-2-3-4.5-5-9-5S5 9 3 12Z"></path>
-                <path d="M7 8c1 1.5 2.5 2.5 5 2.5s4-1 5-2.5"></path>
-                <path d="M7 16c1 1.5 2.5 2.5 5 2.5s4-1 5-2.5"></path>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <!-- Main building outline -->
+            <rect x="4" y="2" width="16" height="20" rx="1"></rect>
+            <!-- Door -->
+            <path d="M10 22v-4h4v4"></path>
+            <!-- Windows -->
+            <path d="M8 6h2v2H8z"></path>
+            <path d="M14 6h2v2h-2z"></path>
+            <path d="M8 11h2v2H8z"></path>
+            <path d="M14 11h2v2h-2z"></path>
             </svg>
         </button>
 
@@ -1190,7 +1195,7 @@
 
         <div class="map-overlay bottom-left">
 
-            <div class="map-legend">
+            <!-- <div class="map-legend">
 
 
                 <div>
@@ -1219,7 +1224,7 @@
 
                 </div>
 
-            </div>
+            </div> -->
 
         </div>
 
