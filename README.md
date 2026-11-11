@@ -5,7 +5,7 @@
 
 A digital platform for monitoring and managing India's Antarctic research stations, Maitri and Bharati.
 
-# Tech Stack
+# Technical Approach
  ![tech](tech.png)
 
 ## Features
@@ -13,15 +13,19 @@ A digital platform for monitoring and managing India's Antarctic research statio
 - **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
 
    ![weather](weather.png)
+  
 - **Energy Management:** Monitor energy usage and test different environmental scenarios.
 
    ![energy](energy.png)
+  
 - **Logistics Management:** View station supply and logistics information.
 
    ![logi](logi.png)
+  
 - **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
 
   ![3d](3d.png)
+  
 - **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
 - **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
 
