@@ -1,10 +1,16 @@
-# Antarctica Digital Twin — Team Dolphin
+# SIH 26060
+# **Team Name**: Dolphin
+# **Team ID**: 143278
+# Antarctica Digital Twin
 
 A digital platform for monitoring and managing India's Antarctic research stations, Maitri and Bharati.
 
+# Tech Stack
+ ![tech](tech.png)
+
 ## Features
 
-- **Weather Monitoring:** View temperature, wind speed and other weather conditions.
+- **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
 
    ![weather](weather.png)
 - **Energy Management:** Monitor energy usage and test different environmental scenarios.
@@ -13,15 +19,9 @@ A digital platform for monitoring and managing India's Antarctic research statio
 - **Logistics Management:** View station supply and logistics information.
 
    ![logi](logi.png)
-- **Infrastructure Management:** Add and manage infrastructure components.
-
-   ![infra](infra.png)
-- **Antarctica 3D View:** Explore a 3D view of Antarctica.
+- **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
 
   ![3d](3d.png)
-- **Environmental Monitoring:** View temperature, wind, snowfall, visibility, storm and pressure layers.
-
-  ![env](env.png)
 - **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
 - **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
 
