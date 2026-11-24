@@ -15,7 +15,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
 
 ## Features
 
-1)) **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
+**1)** **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
 
    ![weather](weather.png)
    
@@ -30,7 +30,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - JavaScript displays the information in the dashboard.
   
   
-2)) **Energy Management:** Monitor energy usage and test different environmental scenarios.
+**2)** **Energy Management:** Monitor energy usage and test different environmental scenarios.
 
    ![energy](energy.png)
    
@@ -45,7 +45,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - Users can explore different environmental scenarios through the interface.
    
   
-3)) **Logistics Management:** View station supply and logistics information.
+**3)** **Logistics Management:** View station supply and logistics information.
 
    ![logi](logi.png)
 
@@ -61,7 +61,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
 
    
   
-4)) **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
+**4)** **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
 
   ![3d](3d.png)
 
@@ -77,7 +77,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
 
   
   
-5)) **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
+**5)** **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
 
    **Technologies**: JavaScript, Three.js.
    
@@ -90,7 +90,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - Three.js is used to present the visual changes in the digital environment.
 
  
-6)) **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
+**6)** **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
 
   ![ai](ai.png)
 
