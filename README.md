@@ -15,26 +15,54 @@ A digital platform for monitoring and managing India's Antarctic research statio
 
 ## Features
 
-- **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
+1) **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
 
    ![weather](weather.png)
+   **Technologies**: Open-Meteo API, Windy Weather Map, JavaScript.
+
+   **Working flow:**
+   
+   - Weather information is fetched from the Open-Meteo API.
+   
+   - Windy provides an interactive view of weather conditions.
+   
+   - JavaScript displays the information in the dashboard.
   
-- **Energy Management:** Monitor energy usage and test different environmental scenarios.
+  
+2) **Energy Management:** Monitor energy usage and test different environmental scenarios.
 
    ![energy](energy.png)
+   **Technologies**: JavaScript, HTML, CSS.
+
+   **Working flow**:
+   
+   - Energy information is presented through the dashboard.
+   
+   - JavaScript handles the displayed values and user interactions.
+   
+   - Users can explore different environmental scenarios through the interface.
+   
   
-- **Logistics Management:** View station supply and logistics information.
+3) **Logistics Management:** View station supply and logistics information.
 
    ![logi](logi.png)
+
+   
   
-- **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
+4) **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
 
   ![3d](3d.png)
+
   
-- **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
-- **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
+  
+5) **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
+
+ 
+6) **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
 
   ![ai](ai.png)
+
+  
 
 ## Technologies Used
 
