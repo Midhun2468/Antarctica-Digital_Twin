@@ -1,10 +1,8 @@
-## SIH 26060
-## **Team Name**: Dolphin
-## **Team ID**: 143278
+## SIH 26060 || **Team Name**: Dolphin || **Team ID**: 143278
 
 # Live Prototype: 
 
-# https://dolphin-production-e8b5.up.railway.app/
+## https://dolphin-production-e8b5.up.railway.app/
 
 # Antarctica Digital Twin
 
