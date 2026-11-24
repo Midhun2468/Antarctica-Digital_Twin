@@ -15,9 +15,10 @@ A digital platform for monitoring and managing India's Antarctic research statio
 
 ## Features
 
-1) **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
+1)) **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
 
    ![weather](weather.png)
+   
    **Technologies**: Open-Meteo API, Windy Weather Map, JavaScript.
 
    **Working flow:**
@@ -29,9 +30,10 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - JavaScript displays the information in the dashboard.
   
   
-2) **Energy Management:** Monitor energy usage and test different environmental scenarios.
+2)) **Energy Management:** Monitor energy usage and test different environmental scenarios.
 
    ![energy](energy.png)
+   
    **Technologies**: JavaScript, HTML, CSS.
 
    **Working flow**:
@@ -43,25 +45,66 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - Users can explore different environmental scenarios through the interface.
    
   
-3) **Logistics Management:** View station supply and logistics information.
+3)) **Logistics Management:** View station supply and logistics information.
 
    ![logi](logi.png)
 
+   **Technologies**: Leaflet.js, OpenStreetMap, GPS, JavaScript.
+
+   **Working flow**:
+   
+   - OpenStreetMap provides the geographical map.
+   
+   - Leaflet.js displays the map and relevant locations.
+   
+   - GPS information helps represent station and logistics-related locations.
+
    
   
-4) **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
+4)) **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
 
   ![3d](3d.png)
 
+  **Technologies**: Blender, Three.js, JavaScript.
+
+  **Working flow**:
+  
+  - Blender is used to create the 3D infrastructure models.
+  
+  - Three.js loads and renders the models in the browser.
+  
+  - JavaScript supports interaction with the 3D environment and infrastructure components.
+
   
   
-5) **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
+5)) **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
+
+   **Technologies**: JavaScript, Three.js.
+   
+   **Working flow**:
+   
+   - Users select an environmental scenario.
+   
+   - The application updates the corresponding simulation conditions.
+   
+   - Three.js is used to present the visual changes in the digital environment.
 
  
-6) **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
+6)) **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
 
   ![ai](ai.png)
 
+   **Technologies**: Gemini API, Python, FastAPI, JavaScript.
+   
+   **Working flow**:
+   
+   - Users submit questions or commands through the chatbot interface.
+   
+   - The backend handles the request and connects with the Gemini API.
+   
+   - The response is returned to the frontend and displayed to the user.
+   
+   - Supported commands can be used to access dashboard features.
   
 
 ## Technologies Used
