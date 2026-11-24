@@ -10,32 +10,15 @@
 
 A digital platform for monitoring and managing India's Antarctic research stations, Maitri and Bharati.
 
-# Technical Approach
- ![tech](tech.png)
+# Features
 
-## Features
+**1)** **Energy Management:** Monitor energy usage and test different environmental scenarios. 
 
-**1)** **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
-
-   ![weather](weather.png)
-   
-   **Technologies**: Open-Meteo API, Windy Weather Map, JavaScript.
-
-   **Working flow:**
-   
-   - Weather information is fetched from the Open-Meteo API.
-   
-   - Windy provides an interactive view of weather conditions.
-   
-   - JavaScript displays the information in the dashboard.
- <br>
-  
-**2)** **Energy Management:** Monitor energy usage and test different environmental scenarios.
-
-  **Unique Feature**: AR Based Remote Equipment Repair. 
+  **Unique Feature**: AR Based Remote Equipment Repair. (**Please Play Video** 📽️)
    
 
 https://github.com/user-attachments/assets/a4298eaa-84d2-46b2-af97-63dbcebb13dd
+
 
 
    ![energy](energy.png)
@@ -50,7 +33,24 @@ https://github.com/user-attachments/assets/a4298eaa-84d2-46b2-af97-63dbcebb13dd
    - JavaScript handles the displayed values and user interactions.
    
    - Users can explore different environmental scenarios through the interface.
-<br>   
+<br>  
+
+**2)** **Weather and Environment Monitoring:** View temperature, wind speed and other weather conditions.
+
+   ![weather](weather.png)
+   
+   **Technologies**: Open-Meteo API, Windy Weather Map, JavaScript.
+
+   **Working flow:**
+   
+   - Weather information is fetched from the Open-Meteo API.
+   
+   - Windy provides an interactive view of weather conditions.
+   
+   - JavaScript displays the information in the dashboard.
+ <br>
+  
+ 
   
 **3)** **Logistics Management:** View station supply and logistics information.
 
@@ -112,7 +112,26 @@ https://github.com/user-attachments/assets/a4298eaa-84d2-46b2-af97-63dbcebb13dd
    - The response is returned to the frontend and displayed to the user.
    
    - Supported commands can be used to access dashboard features.
+
 <br>  
+
+7) **C++ Based Data Compression**
+
+A separate C++ module implements **Huffman Coding**, a lossless data compression technique. It is designed to reduce the size of sensor and station data before transmission, which can be useful in bandwidth-limited communication environments such as satellite links.
+
+**Technologies:** C++, Huffman Coding.
+
+**Working flow:**
+  ![huffman](huffman.png)
+
+  
+- The module takes the input data from the station.
+- It calculates the frequency of the characters or symbols in the data.
+- Huffman coding assigns shorter binary codes to frequently occurring symbols and longer codes to less frequent ones.
+- The data is converted into a compressed binary representation.
+- The original data can be recovered using the corresponding decompression process.
+
+**Purpose:** Reduce the amount of data required for transmission while preserving the original information.
 
 ## Technologies Used
 
@@ -123,6 +142,10 @@ https://github.com/user-attachments/assets/a4298eaa-84d2-46b2-af97-63dbcebb13dd
 - Open-Meteo API
 - Windy
 - Google Gemini API
+
+## Technical Approach
+ ![tech](tech.png)
+<br>
 
 ## Installation and Setup
 
