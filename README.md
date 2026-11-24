@@ -28,7 +28,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - Windy provides an interactive view of weather conditions.
    
    - JavaScript displays the information in the dashboard.
-  
+ <br>
   
 **2)** **Energy Management:** Monitor energy usage and test different environmental scenarios.
 
@@ -43,7 +43,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - JavaScript handles the displayed values and user interactions.
    
    - Users can explore different environmental scenarios through the interface.
-   
+<br>   
   
 **3)** **Logistics Management:** View station supply and logistics information.
 
@@ -59,7 +59,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
    
    - GPS information helps represent station and logistics-related locations.
 
-   
+<br>   
   
 **4)** **Research Station 3D View + Infrastructure Management:** Add and manage infrastructure components.
 
@@ -75,7 +75,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
   
   - JavaScript supports interaction with the 3D environment and infrastructure components.
 
-  
+<br>  
   
 **5)** **Simulation:** Test scenarios such as extreme cold, high winds and severe storms.
 
@@ -88,7 +88,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - The application updates the corresponding simulation conditions.
    
    - Three.js is used to present the visual changes in the digital environment.
-
+<br>
  
 **6)** **AI Chatbot:** Use Penguin to ask questions and access dashboard features through simple commands.
 
@@ -105,7 +105,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
    - The response is returned to the frontend and displayed to the user.
    
    - Supported commands can be used to access dashboard features.
-  
+<br>  
 
 ## Technologies Used
 
