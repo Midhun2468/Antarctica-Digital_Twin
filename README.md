@@ -113,7 +113,7 @@ https://github.com/user-attachments/assets/a4298eaa-84d2-46b2-af97-63dbcebb13dd
 
 <br>  
 
-7) **C++ Based Data Compression**
+**7)** **C++ Based Data Compression**
 
 A separate C++ module implements **Huffman Coding**, a lossless data compression technique. It is designed to reduce the size of sensor and station data before transmission, which can be useful in bandwidth-limited communication environments such as satellite links.
 
