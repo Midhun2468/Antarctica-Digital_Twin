@@ -1,0 +1,44 @@
+<svg width="60" height="80" viewBox="0 0 48 54" fill="none" xmlns="http://w3.org">
+  <style>
+    .penguin-bob {
+      animation: gentle-bob 0.6s ease-in-out infinite;
+    }
+    .arrow-pulse {
+      animation: arrow-dip 1.4s ease-in-out infinite;
+    }
+    @keyframes gentle-bob {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(3px); }
+    }
+    @keyframes arrow-dip {
+      0%, 100% { transform: translateY(0px); opacity: 0.85; }
+      50% { transform: translateY(4px); opacity: 1; }
+    }
+  </style>
+
+  <g class="penguin-bob">
+    <!-- Left & Right Flippers -->
+    <path d="M11 23C8 26 7.5 31 9.5 32.5C11 33.5 13 30 14 27" fill="#24292F"/>
+    <path d="M37 23C40 26 40.5 31 38.5 32.5C37 33.5 35 30 34 27" fill="#24292F"/>
+
+    <!-- Penguin Outer Body -->
+    <path d="M24 6C15.5 6 11 13 11 24C11 33 15.5 38 24 38C32.5 38 37 33 37 24C37 13 32.5 6 24 6Z" fill="#24292F"/>
+
+    <!-- White Belly -->
+    <path d="M24 15C18 15 15 20 15 27C15 33.5 18.5 36.5 24 36.5C29.5 36.5 33 33.5 33 27C33 20 30 15 24 15Z" fill="#FFFFFF"/>
+
+    <!-- Minimal Eyes -->
+    <circle cx="19.5" cy="14.5" r="1.6" fill="#FFFFFF"/>
+    <circle cx="28.5" cy="14.5" r="1.6" fill="#FFFFFF"/>
+
+    <!-- Sleek Beak -->
+    <path d="M21.5 17.5C21.5 16.8 22.6 16.5 24 16.5C25.4 16.5 26.5 16.8 26.5 17.5C26.5 18.4 25.1 19.5 24 19.5C22.9 19.5 21.5 18.4 21.5 17.5Z" fill="#F59E0B"/>
+
+    <!-- Tiny Feet -->
+    <ellipse cx="19" cy="38.2" rx="3.2" ry="1.4" fill="#F59E0B"/>
+    <ellipse cx="29" cy="38.2" rx="3.2" ry="1.4" fill="#F59E0B"/>
+  </g>
+
+  <!-- Minimal Pointing Down Chevron -->
+  <path class="arrow-pulse" d="M20 44L24 48L28 44" stroke="#F59E0B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
