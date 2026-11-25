@@ -134,7 +134,7 @@ A separate C++ module implements **Huffman Coding**, a lossless data compression
 
 **8. Crew Health and Safety Monitoring**
 
- ![crew](crew.png)
+ ![crew](crew.jpeg)
 
 Crew monitoring dashboard is designed to track the health, location and safety of personnel at Maitri and Bharati stations. It brings wearable-based health information and location monitoring together in one interface.
 
