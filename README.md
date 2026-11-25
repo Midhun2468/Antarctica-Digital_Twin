@@ -12,7 +12,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
 
 **1)** **Energy Management:** Monitor energy usage and test different environmental scenarios. 
 
-  **Unique Feature**: AR Based Remote Equipment Repair. (**Please Play Video Below** 📽️) <img width="60" height="80" alt="penguin-inline" src="https://github.com/user-attachments/assets/80739a1b-4792-4921-b278-2f2339a4f2b8" />
+  **Unique Feature**: AR Based Remote Equipment Repair. (**Please Play Video Below** ⤵️📽️)
 
    
 
