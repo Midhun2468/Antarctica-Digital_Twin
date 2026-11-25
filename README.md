@@ -140,15 +140,15 @@ Crew monitoring dashboard is designed to track the health, location and safety o
 
 **Key Capabilities:**
 
-Live Crew Monitoring: View heart rate, SpO₂, body temperature and individual health baselines.
+- Live Crew Monitoring: View heart rate, SpO₂, body temperature and individual health baselines.
 
-Location Tracking: Visualize crew locations and monitor station safety zones.
+- Location Tracking: Visualize crew locations and monitor station safety zones.
 
-Health Trends: View historical health readings and safety scores.
+- Health Trends: View historical health readings and safety scores.
 
-Emergency Alerts: Identify potential falls, prolonged immobility and geofence violations.
+- Emergency Alerts: Identify potential falls, prolonged immobility and geofence violations.
 
-Environmental Correlation: View environmental conditions alongside crew health information.
+- Environmental Correlation: View environmental conditions alongside crew health information.
 
 **Technologies**: HTML, CSS, JavaScript, Python, Open Wearables.
 
