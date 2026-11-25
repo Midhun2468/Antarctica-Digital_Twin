@@ -12,7 +12,7 @@ A digital platform for monitoring and managing India's Antarctic research statio
 
 **1)** **Energy Management:** Monitor energy usage and test different environmental scenarios. 
 
-  **Unique Feature**: AR Based Remote Equipment Repair. (**Please Play Video** 📽️)
+  **Unique Feature**: AR Based Remote Equipment Repair. (**Please Play Video Below** 📽️) <a><img src="penguin-inline.svg" width="26" align="absmiddle" alt="Watch video below" /></a>
    
 
 https://github.com/user-attachments/assets/a4298eaa-84d2-46b2-af97-63dbcebb13dd
@@ -130,6 +130,26 @@ A separate C++ module implements **Huffman Coding**, a lossless data compression
 - The original data can be recovered using the corresponding decompression process.
 
 **Purpose:** Reduce the amount of data required for transmission while preserving the original information.
+
+**8. Crew Health and Safety Monitoring**
+
+ ![crew](crew.png)
+
+Crew monitoring dashboard is designed to track the health, location and safety of personnel at Maitri and Bharati stations. It brings wearable-based health information and location monitoring together in one interface.
+
+**Key Capabilities:**
+
+Live Crew Monitoring: View heart rate, SpO₂, body temperature and individual health baselines.
+
+Location Tracking: Visualize crew locations and monitor station safety zones.
+
+Health Trends: View historical health readings and safety scores.
+
+Emergency Alerts: Identify potential falls, prolonged immobility and geofence violations.
+
+Environmental Correlation: View environmental conditions alongside crew health information.
+
+**Technologies**: HTML, CSS, JavaScript, Python, Open Wearables.
 
 ## Technologies Used
 
